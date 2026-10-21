@@ -19,6 +19,17 @@ export const SIDES = ["old", "new"];
 export const DECISIONS = ["applied", "dismissed"];
 export const RULE_CANDIDATE_TAG = "rule_candidate";
 
+/**
+ * The command that defines a review's change set (SPEC 8), without the two commits and the trailing `--`:
+ * `git <CHANGESET_GIT_ARGS> <baseSha> <headSha> --`. Every flag is there because a user's git configuration
+ * would otherwise change which files are reported (tools/changeset-experiment.mjs shows each effect).
+ */
+export const CHANGESET_GIT_ARGS = [
+  "-c", "diff.renameLimit=5000",
+  "diff", "--raw", "-z", "-M",
+  "--no-color", "--no-ext-diff", "--no-textconv", "--ignore-submodules=none", "--no-abbrev",
+];
+
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 const SHA = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const HASH = /^[0-9a-f]{64}$/;

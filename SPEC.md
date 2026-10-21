@@ -212,30 +212,50 @@ a device id MUST NOT be copied to another machine, restored from a backup onto a
 shared between tools. (If it happens anyway, the union merge in 2.1 and the fold in section 7 still
 produce a correct state: no event is lost and none is applied twice.)
 
+A tool SHOULD notice that its id was copied: it stores an identifier of the machine beside the id and, on
+finding a different machine, generates a new id.
+
+**Where things live.** The group's folder, and the folder where a tool keeps its device id and locks,
+SHOULD be on a local disk: not shared over a network and not synchronised by a file-sync service
+(OneDrive, Dropbox and the like). Operating-system locks are unreliable on network and cloud-synced
+folders, and a file-sync service can copy a device id to another machine. Git is the only synchronisation.
+
 **Hosts.** One tool may run in several hosts on one machine (the same IDE plugin in two IDEs, or in two
 versions of one IDE). A tool MAY give each host its own device id, or MAY keep one id per machine and share
-it between its hosts. Hosts that share an id MUST take the lock of 5.2 step 1 for every review they write
-to, and a host that cannot take it MUST treat that review as read-only until it can (it still reads and
-shows the review, including what the other host wrote). Within one host, everything that writes to one
-review (several windows or projects) MUST go through one holder of that lock. The id of a tool is never
-shared with a different tool.
+it between its hosts. Hosts that share an id append through the lock of 5.2, which serializes their
+appends, and each reads the end of the log under that lock, so all of them can write to one review. Within
+one process, everything that writes to one review (several windows or projects) MUST go through one holder
+of that lock, because an operating system may refuse a second lock on the same file by the same process.
+The id of a tool is never shared with a different tool.
 
 ### 5.2 Writing
 
-A writer MUST, for each event:
+A writer MUST, for each event, do the following in one critical section guarded by an operating-system
+lock on `<device-id>.lock`, **never** on the log itself (a lock on the log can stop git from reading it,
+and then the commit fails):
 
-1. hold exclusive write access to its own log by holding an operating-system lock on
-   `<device-id>.lock`, **never** on the log itself (a lock on the log can stop git from reading it, and
-   then the commit fails); a second instance of the same device MUST be refused, not allowed to
-   interleave;
-2. start the event on a new line: if the file does not end in `\n` (a previous write was cut off), write
-   `\n` first;
-3. append the JSON object and `\n`, flush to the operating system, and `fsync`;
-4. tell the user the change is saved **only after** the `fsync` returned.
+1. take the lock, waiting briefly if another instance of this device holds it;
+2. read the end of the log: the `ts` and `seq` of its last complete line, and whether the file ends in
+   `\n`;
+3. if the file does not end in `\n` (a previous write was cut off), write `\n` first;
+4. append the event as one JSON object and `\n`, with a new unique `id`, `seq` one more than the last
+   line's (1 for an empty log), and a `ts` greater than the last line's and than the writer's own previous
+   event, even if the clock went backwards; flush to the operating system and `fsync`;
+5. release the lock (see below for holding it longer);
+
+and tell the user the change is saved **only after** the `fsync` returned. An instance that cannot take
+the lock within a short wait MUST report that the change was not saved; it MUST NOT write without the lock.
+
+Reading the last line under the lock is what lets several instances of one device (5.1, *Hosts*) share a
+log: none of them relies on a `ts` or `seq` it remembered, because another instance may have appended
+since. Their appends are serialized by the lock, so none interleaves.
+
+A writer MAY instead keep the lock for as long as it has the review open. Other instances of that device
+then cannot take it, and treat the review as read-only while it lasts (they still read and show it). Both
+styles are correct, and instances using different styles can run together.
 
 A writer MUST NOT rewrite, truncate, reorder or delete lines of any log, its own included. Corrections
-are new events. A writer MUST give every event a new unique `id` and a `ts` greater than that of its
-previous event, even if the clock went backwards.
+are new events.
 
 ### 5.3 Reading
 
@@ -415,11 +435,25 @@ Marks and anchors are checked against the files at the review's **current pin**.
 repository. A tool that does not have it on the current device MUST show marks and anchor states as
 unverified, never as valid or stale.
 
-**Change set.** The change set is the files changed between `pin.baseSha` and `pin.headSha`, as
-`git diff --raw -z -M --no-abbrev --no-ext-diff <baseSha> <headSha> --` reports them, each with its
-modes, blob ids and, for a rename, both paths. The identity `path` of a file is its new path, or its old
-path if deleted. The **new side** of a file is the blob `newBlob` (absent if the file was deleted); the
-**old side** is `oldBlob` (absent if the file was added).
+**Change set.** The change set is the files changed between `pin.baseSha` and `pin.headSha`, as this
+command reports them, each with its modes, blob ids and, for a rename, both paths:
+
+```
+git -c diff.renameLimit=5000 diff --raw -z -M --no-color --no-ext-diff --no-textconv \
+    --ignore-submodules=none --no-abbrev <baseSha> <headSha> --
+```
+
+A tool MUST run this command (it may add flags that do not change which files or blob ids are reported).
+Each flag is there because a user's git configuration changes the result without it: git silently skips
+inexact rename detection above `diff.renameLimit` (its default is 1000), so a large rename is reported as
+deletions plus additions; `diff.ignoreSubmodules` can hide a changed submodule. Two devices with different
+configuration would then disagree on file identity and `changeKey`, and with it on file marks and file
+anchors (`tools/changeset-experiment.mjs` shows both effects). Above the pinned limit git still skips
+inexact renames, the same way for every conforming tool, so the results agree.
+
+The identity `path` of a file is its new path, or its old path if deleted. The **new side** of a file is
+the blob `newBlob` (absent if the file was deleted); the **old side** is `oldBlob` (absent if the file was
+added).
 
 **File marks.** A mark is `valid` if the path is in the change set and its `changeKey` equals the mark's;
 `stale` if the path is in the change set with a different key; `gone` if the path is not in the change set.

@@ -4,12 +4,11 @@ A specification, and a runnable reference, for storing code-review state in a gi
 different tools (the standalone **Local Review** app, the **Local Diff Review** IDE plugin) can read and
 write the same reviews through the same git remote.
 
-Status: **draft 4**, written before either tool implements it. Nothing here has been run by those tools.
+Status: **draft 5**, written before either tool implements it. Nothing here has been run by those tools.
 What has been run is the reference implementation in `tools/`, against the example in `examples/`.
-Draft 4 fixed the `.gitignore`/`.gitattributes` conflict rule (git applies the last matching line), added a
-check that git honours the required rules, put the writer's lock on the `.lock` file only, and removed
-everything that existed only to read the app's earlier format (it held no real data). See "Changes since
-draft 3" in DECISIONS.md.
+Draft 5 followed the IDE plugin developer's review of draft 4: it pins the change-set command (SPEC 8), makes
+the append lock a per-event critical section so several IDEs can share one device id (SPEC 5.2), and adds
+notes on copied device ids and local disks. See "Changes since draft 4" in DECISIONS.md.
 
 ## What it is, in short
 
@@ -45,6 +44,7 @@ Needs Node 20 or newer (and git, only to rebuild the fixture or run the sync exp
 ```
 node tools/selftest.mjs                       # 55 checks: algorithms, text and repository-file rules, the example, expected/ is current
 node tools/sync-experiment.mjs                # real git: 10 experiments (union merge, joining groups, autocrlf, older groups, effective rules)
+node tools/changeset-experiment.mjs           # real git: the pinned change-set command is immune to a user's git config
 node tools/fold.mjs examples/state/reviews/<id> --content examples/content    # fold and evaluate a review
 ```
 
@@ -70,6 +70,7 @@ tools/
   make-fixture.mjs  make-example.mjs  generators
   selftest.mjs  sync-experiment.mjs  tests
   repocheck.mjs                    asks git whether the required .gitignore/.gitattributes rules are honoured
+  changeset-experiment.mjs         shows why the change-set command is pinned (git config changes `git diff -M`)
 ```
 
 ## What is not specified

@@ -10,7 +10,9 @@ How to prove it: both tools fold `examples/state/reviews/*` and compare with `ex
 
 ## The app
 
-The app's current events are close to this format; most work is additive.
+The app's current events are close to this format; most work is additive. Already conforming: the
+change-set command (SPEC 8: the app runs exactly it, plus a `--full-index` that changes nothing), the
+`changeKey` format, and the identity `path` of renames and deletions.
 
 1. **`group.json`**: write `schemaVersion: 2`, `createdAt`; make `name` optional (fall back to the folder
    name). Reading a group the plugin made currently fails with `` missing field `name` ``.
@@ -64,16 +66,20 @@ the user made for it are recorded in DECISIONS (U7 and the plugin scope below).
    that a later line overrides (SPEC 2.1, a SHOULD), and commits, so lock files and device-local data are
    never committed. Keep the old `.state/` outside the group for last-opened pointers, the repository to
    group choice and the device id.
-2. **Device id** *(draft 3, decided by the user)*: one per **machine**, generated once and kept in
-   `.state/`, shared by every IDE on the machine that runs the plugin (SPEC 5.1, *Hosts*). It is not kept in
-   IDE settings, which Settings Sync could copy to another machine. Consequences the plugin has to handle:
-   it takes the lock of SPEC 5.2 per review before writing; when another IDE holds it, the review opens
-   **read-only** with a visible reason, and the plugin keeps reading what the other IDE appends (SPEC 9.4);
-   all projects and windows of one IDE go through one lock holder.
-3. **Event log**: write (append, `fsync`, lock, torn-tail repair, per SPEC 5.2) and read (SPEC 5.3) and
-   fold (SPEC 7). `ReviewStore` becomes a view over the fold instead of a set of files; `AtomicFiles`
-   remains for `review.json` and `group.json`. Lock the `.lock` file, not the log itself (an operating
-   system lock on the log can stop git from reading it).
+2. **Device id** *(draft 3, decided by the user; draft 5 changed its consequence)*: one per **machine**,
+   generated once and kept in `.state/`, shared by every IDE on the machine that runs the plugin (SPEC 5.1,
+   *Hosts*). It is not kept in IDE settings, which Settings Sync could copy to another machine. Because
+   `.state/` sits in the store root, which someone may sync with a file-sync service, store a machine
+   fingerprint beside the id and generate a new id when it differs (SPEC 5.1). Take the lock of SPEC 5.2
+   **per event**, so all IDEs can write to one review at once; keep one lock holder per review per IDE
+   process, shared by all projects and windows (Java refuses a second lock on one file in one process).
+   Holding the lock for a whole session instead is allowed and makes the other IDEs read-only for that
+   review (SPEC 5.2).
+3. **Event log**: write (the critical section of SPEC 5.2 for every event: lock, read the log's last `ts`
+   and `seq`, append, `fsync`, release) and read (SPEC 5.3) and fold (SPEC 7). `ReviewStore` becomes a view
+   over the fold instead of a set of files; `AtomicFiles` remains for `review.json` and `group.json`. Lock
+   the `.lock` file, not the log itself (verified: an operating system lock on the log makes `git add -A`
+   fail on Windows, exit 128, "unable to index file").
 4. **Replace the per-file conflict machinery.** `GroupSync`'s `rank`/`.conflict-` logic goes: merge with
    union and the three resolutions of SPEC 9.3. Keep the retry loop and the SSH key support.
 5. **`review.json`**: immutable; no `revisions`, no `updatedAt`, no `lastKnownPath`; add `repo.rootCommit`
@@ -85,13 +91,17 @@ the user made for it are recorded in DECISIONS (U7 and the plugin scope below).
    not know: `annotationEdited` carries `tags` only when the user changed them, built from the current tags
    so unknown ones survive.
 8. **Marks**: replace `viewedFingerprint`/`viewedHunks` by `fileReviewed` (with the file's modes added to
-   its `changeKey`, from `git diff --raw`: `GitCli.parseRaw` drops them today) and region marks. Build
+   its `changeKey`, from the pinned command of SPEC 8: `GitCli.parseRaw` drops the modes today, and
+   `GitCli.diffRaw` lacks `-c diff.renameLimit=5000`, `--no-color`, `--no-textconv` and
+   `--ignore-submodules=none`) and region marks. Build
    ranges from the IDE diff chunks as in ALGORITHMS 6. The "all hunks reviewed means the file is reviewed"
    rule may stay as a tool behaviour that emits both events. The Changes tree computes progress from
    region marks against the changed lines in the background (user's choice), with a "calculating" state and
    an "unverified" state when the repository or a pinned commit is missing (SPEC 8).
 9. **Selection across sides** in a unified diff stops collapsing to the clicked line: emit a range per
-   side.
+   side (`UnifiedDiffViewer.transferLineFromOnesideStrict(side, line)` gives, per selected line, its old and
+   new numbers, or -1 when the line is not on that side). The review viewer forces whitespace-sensitive
+   comparison (ALGORITHMS 6).
 10. **Never move or rename anything.** *(Draft 3; this replaces "quarantine only files the plugin owns".)*
     Unreadable files are reported and left where they are: not in `events/`, not `review.json`, not files of
     the old layout (another 0.1.0 device may still use them). The plugin's `*.corrupt` renaming goes;
@@ -101,7 +111,11 @@ the user made for it are recorded in DECISIONS (U7 and the plugin scope below).
     `document.text` today; the IDE applies its own charset, drops the BOM and splits on a lone CR). The
     trim set is the four ASCII characters of ALGORITHMS 1.4, not Kotlin's Unicode `trim()`
     (`Anchoring.kt`). For a file whose numbering in the viewer differs from the blob's, do not offer line
-    comments or region marks; file comments and file marks still work.
+    comments or region marks; file comments and file marks still work. The plugin's plan (verified with
+    probes on PyCharm 2026.2.3: the IDE strips a BOM, normalises CRLF, does not split on U+2028, U+0085 or
+    form feed, turns invalid bytes into U+FFFD without changing the line count, and splits only on a lone
+    CR, which ALGORITHMS 1.3 excludes): compute the lines by ALGORITHMS 1, feed the viewer the decoded text
+    so its numbering matches by construction, and check the line counts as a safety net.
 12. **Finding the clone** *(draft 3)*. `ReviewService.rootFor` matches `lastKnownPath` first; that path is
     forbidden in synced files. Use SPEC 4.1 (root commit, then URL, then display name) with a device-local
     mapping to open projects.

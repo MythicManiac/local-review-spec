@@ -196,6 +196,9 @@ that the same gesture produces the same range in every tool.
   form one range, its changed lines on the new side form another; omit a side that has none (a pure
   addition has no old range). Emit one `regionReviewed` with those ranges, each with its side's current
   `blob` and `hash`. Context lines are not part of the mark.
+  The comparison used to choose the ranges must be whitespace-sensitive. A viewer may offer to ignore
+  whitespace, but a whitespace-only change is part of the change set and of the file's `changeKey`, so a
+  hunk that hides it could never be marked reviewed; such a viewer marks from a sensitive comparison.
 - **Marking a selection reviewed** is the same with the ranges of the selection.
 - **Un-marking** emits `regionUnreviewed` with the ranges of the lines the user un-marked. The ranges are
   in the numbering of the current files and carry the current blobs, so they take effect on exactly what
@@ -203,3 +206,6 @@ that the same gesture produces the same range in every tool.
 - **Showing hunk progress.** A hunk is reviewed when every changed line of it, on each side, is in
   `covered`. Show "n of m changed lines reviewed" or a hunk-level checkbox as the interface needs; none of
   it is stored.
+  A tool may compute the changed lines with its own comparison engine (the IDE's, or git's). Its tree and
+  its viewer should use the same one so they agree. Two tools can count different changed lines for the
+  same file (they pick different hunks around repeated lines); nothing stored depends on it.

@@ -14,6 +14,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, copyFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
+import { CHANGESET_GIT_ARGS } from "./lib.mjs";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -159,7 +160,7 @@ const c2 = commit("Address review: guard division, add header");
 
 // ---- export -------------------------------------------------------------------------------
 function changeset(base, head) {
-  const raw = execFileSync("git", ["diff", "--raw", "-z", "-M", "--no-abbrev", "--no-ext-diff", base, head, "--"], {
+  const raw = execFileSync("git", [...CHANGESET_GIT_ARGS, base, head, "--"], {
     cwd: repo,
     env: gitEnv(),
   }).toString("utf8");
