@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-review.example/schema/event.schema.json",
+  "title": "One line of events/<device>.jsonl",
+  "description": "The envelope and the event vocabulary. This schema describes what a conforming WRITER emits. A READER is more tolerant: it ignores unknown properties, and it ignores (and counts) events whose type or enum values it does not know instead of failing.",
+  "type": "object",
+  "required": ["v", "id", "ts", "dev", "seq", "ev"],
+  "properties": {
+    "v": { "const": 1, "description": "Version of the envelope, not of the event vocabulary." },
+    "id": { "$ref": "#/$defs/Id", "description": "Unique across all logs of the review. Duplicates are ignored." },
+    "ts": { "type": "integer", "minimum": 0, "description": "Milliseconds since the Unix epoch. Strictly increasing within one device log." },
+    "dev": { "$ref": "#/$defs/Id", "description": "The writing device." },
+    "seq": { "type": "integer", "minimum": 1, "description": "Position in this device's log. Used only for ordering; readers never require it to be contiguous." },
+    "ev": {
+      "oneOf": [
+        { "$ref": "#/$defs/reviewRenamed" },
+        { "$ref": "#/$defs/reviewStatusChanged" },
+        { "$ref": "#/$defs/reviewRetargeted" },
+        { "$ref": "#/$defs/annotationCreated" },
+        { "$ref": "#/$defs/annotationEdited" },
+        { "$ref": "#/$defs/annotationStatusChanged" },
+        { "$ref": "#/$defs/annotationReanchored" },
+        { "$ref": "#/$defs/annotationDeleted" },
+        { "$ref": "#/$defs/annotationRestored" },
+        { "$ref": "#/$defs/replyAdded" },
+        { "$ref": "#/$defs/replyEdited" },
+        { "$ref": "#/$defs/replyDeleted" },
+        { "$ref": "#/$defs/replyRestored" },
+        { "$ref": "#/$defs/fileReviewed" },
+        { "$ref": "#/$defs/fileUnreviewed" },
+        { "$ref": "#/$defs/regionReviewed" },
+        { "$ref": "#/$defs/regionUnreviewed" },
+        { "$ref": "#/$defs/ruleDecided" }
+      ]
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "Id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+    "Sha": { "type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$" },
+    "Hash": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of a run of lines (see ALGORITHMS.md, section 1)." },
+    "Side": { "enum": ["old", "new"], "description": "old: the base side of the diff. new: the head side." },
+    "Line": { "type": "integer", "minimum": 1, "description": "1-based line number." },
+    "Pin": {
+      "type": "object",
+      "required": ["baseSha", "baseTipSha", "headSha"],
+      "properties": {
+        "baseSha": { "$ref": "#/$defs/Sha" },
+        "baseTipSha": { "$ref": "#/$defs/Sha" },
+        "headSha": { "$ref": "#/$defs/Sha" }
+      },
+      "additionalProperties": true
+    },
+    "Snapshot": {
+      "type": "object",
+      "description": "The code a comment was written about, captured when it was written, with up to 3 lines of context each side.",
+      "required": ["lines", "before", "after"],
+      "properties": {
+        "lines": { "type": "array", "items": { "type": "string" } },
+        "before": { "type": "array", "items": { "type": "string" }, "maxItems": 3 },
+        "after": { "type": "array", "items": { "type": "string" }, "maxItems": 3 }
+      },
+      "additionalProperties": true
+    },
+    "AnchorRange": {
+      "type": "object",
+      "required": ["side", "startLine", "endLine", "snapshot"],
+      "properties": {
+        "side": { "$ref": "#/$defs/Side" },
+        "startLine": { "$ref": "#/$defs/Line" },
+        "endLine": { "$ref": "#/$defs/Line", "description": "Inclusive, and not before startLine." },
+        "snapshot": { "$ref": "#/$defs/Snapshot" }
+      },
+      "additionalProperties": true
+    },
+    "Anchor": {
+      "description": "Where a comment sits. The scope says how precisely.",
+      "oneOf": [
+        {
+          "type": "object",
+          "title": "review: about the review as a whole",
+          "required": ["scope"],
+          "properties": { "scope": { "const": "review" } },
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "title": "file: about one file as a whole",
+          "required": ["scope", "path", "pin"],
+          "properties": {
+            "scope": { "const": "file" },
+            "path": { "type": "string", "minLength": 1, "description": "The file's identity in the diff: its new path, or its old path when the file was deleted." },
+            "oldPath": { "type": "string", "minLength": 1, "description": "Present only when the old side has a different path (a rename)." },
+            "pin": { "$ref": "#/$defs/Pin" }
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "title": "lines: about lines of one file",
+          "required": ["scope", "path", "pin", "ranges"],
+          "properties": {
+            "scope": { "const": "lines" },
+            "path": { "type": "string", "minLength": 1 },
+            "oldPath": { "type": "string", "minLength": 1 },
+            "pin": { "$ref": "#/$defs/Pin" },
+            "ranges": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 2,
+              "items": { "$ref": "#/$defs/AnchorRange" },
+              "description": "At most one range per side. The ranges are independent: each is located on its own side. Two ranges on the same side are not allowed."
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "MarkRange": {
+      "type": "object",
+      "description": "A run of lines on one side, identified by content so it can be found again after the file changes.",
+      "required": ["side", "startLine", "endLine", "blob", "hash"],
+      "properties": {
+        "side": { "$ref": "#/$defs/Side" },
+        "startLine": { "$ref": "#/$defs/Line" },
+        "endLine": { "$ref": "#/$defs/Line" },
+        "blob": { "type": "string", "minLength": 1, "description": "The git blob id of that side's file; the line numbers are valid for exactly this content." },
+        "hash": { "$ref": "#/$defs/Hash", "description": "Hash of the lines startLine..endLine of that blob." }
+      },
+      "additionalProperties": true
+    },
+    "MarkRanges": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/MarkRange" },
+      "description": "At most one range per side."
+    },
+    "reviewRenamed": {
+      "type": "object",
+      "required": ["type", "title"],
+      "properties": { "type": { "const": "reviewRenamed" }, "title": { "type": "string" } }
+    },
+    "reviewStatusChanged": {
+      "type": "object",
+      "required": ["type", "status"],
+      "properties": { "type": { "const": "reviewStatusChanged" }, "status": { "enum": ["open", "done", "archived"] } }
+    },
+    "reviewRetargeted": {
+      "type": "object",
+      "required": ["type", "pin"],
+      "properties": { "type": { "const": "reviewRetargeted" }, "pin": { "$ref": "#/$defs/Pin" } }
+    },
+    "annotationCreated": {
+      "type": "object",
+      "required": ["type", "annotationId", "kind", "tags", "body", "anchor"],
+      "properties": {
+        "type": { "const": "annotationCreated" },
+        "annotationId": { "$ref": "#/$defs/Id" },
+        "kind": { "enum": ["changeRequest", "question", "comment"] },
+        "tags": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 64 }, "uniqueItems": true, "description": "The tag rule_candidate flags a recurring problem worth turning into an agent rule." },
+        "body": { "type": "string", "description": "Markdown." },
+        "anchor": { "$ref": "#/$defs/Anchor" },
+        "ruleText": { "type": "string", "description": "A proposed rule for an agent-instruction file, written by the reviewer. Optional, and independent of the rule_candidate tag." }
+      }
+    },
+    "annotationEdited": {
+      "type": "object",
+      "description": "Only the properties present change. ruleText: null clears it.",
+      "required": ["type", "annotationId"],
+      "properties": {
+        "type": { "const": "annotationEdited" },
+        "annotationId": { "$ref": "#/$defs/Id" },
+        "body": { "type": "string" },
+        "kind": { "enum": ["changeRequest", "question", "comment"] },
+        "tags": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 64 }, "uniqueItems": true },
+        "ruleText": { "type": ["string", "null"] }
+      }
+    },
+    "annotationStatusChanged": {
+      "type": "object",
+      "description": "The note belongs to this status change: a later status change without a note clears it.",
+      "required": ["type", "annotationId", "status"],
+      "properties": {
+        "type": { "const": "annotationStatusChanged" },
+        "annotationId": { "$ref": "#/$defs/Id" },
+        "status": { "enum": ["open", "resolved", "wontFix"] },
+        "note": { "type": "string" }
+      }
+    },
+    "annotationReanchored": {
+      "type": "object",
+      "description": "Moves a comment to code it now refers to. Replaces the whole anchor.",
+      "required": ["type", "annotationId", "anchor"],
+      "properties": {
+        "type": { "const": "annotationReanchored" },
+        "annotationId": { "$ref": "#/$defs/Id" },
+        "anchor": { "$ref": "#/$defs/Anchor" },
+        "method": { "enum": ["picked", "suggestion"], "description": "picked: the user chose the lines. suggestion: the user accepted the position a tool suggested." }
+      }
+    },
+    "annotationDeleted": {
+      "type": "object",
+      "required": ["type", "annotationId"],
+      "properties": { "type": { "const": "annotationDeleted" }, "annotationId": { "$ref": "#/$defs/Id" } }
+    },
+    "annotationRestored": {
+      "type": "object",
+      "required": ["type", "annotationId"],
+      "properties": { "type": { "const": "annotationRestored" }, "annotationId": { "$ref": "#/$defs/Id" } }
+    },
+    "replyAdded": {
+      "type": "object",
+      "required": ["type", "annotationId", "replyId", "body"],
+      "properties": {
+        "type": { "const": "replyAdded" },
+        "annotationId": { "$ref": "#/$defs/Id" },
+        "replyId": { "$ref": "#/$defs/Id" },
+        "body": { "type": "string" }
+      }
+    },
+    "replyEdited": {
+      "type": "object",
+      "required": ["type", "annotationId", "replyId", "body"],
+      "properties": {
+        "type": { "const": "replyEdited" },
+        "annotationId": { "$ref": "#/$defs/Id" },
+        "replyId": { "$ref": "#/$defs/Id" },
+        "body": { "type": "string" }
+      }
+    },
+    "replyDeleted": {
+      "type": "object",
+      "required": ["type", "annotationId", "replyId"],
+      "properties": { "type": { "const": "replyDeleted" }, "annotationId": { "$ref": "#/$defs/Id" }, "replyId": { "$ref": "#/$defs/Id" } }
+    },
+    "replyRestored": {
+      "type": "object",
+      "required": ["type", "annotationId", "replyId"],
+      "properties": { "type": { "const": "replyRestored" }, "annotationId": { "$ref": "#/$defs/Id" }, "replyId": { "$ref": "#/$defs/Id" } }
+    },
+    "fileReviewed": {
+      "type": "object",
+      "description": "The whole change to the file is reviewed. Valid only while the file's changeKey is unchanged.",
+      "required": ["type", "path", "changeKey"],
+      "properties": {
+        "type": { "const": "fileReviewed" },
+        "path": { "type": "string", "minLength": 1 },
+        "changeKey": { "type": "string", "minLength": 1, "description": "oldMode:newMode:oldBlob:newBlob, as git reports them." }
+      }
+    },
+    "fileUnreviewed": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": { "type": { "const": "fileUnreviewed" }, "path": { "type": "string", "minLength": 1 } }
+    },
+    "regionReviewed": {
+      "type": "object",
+      "required": ["type", "path", "ranges"],
+      "properties": { "type": { "const": "regionReviewed" }, "path": { "type": "string", "minLength": 1 }, "ranges": { "$ref": "#/$defs/MarkRanges" } }
+    },
+    "regionUnreviewed": {
+      "type": "object",
+      "required": ["type", "path", "ranges"],
+      "properties": { "type": { "const": "regionUnreviewed" }, "path": { "type": "string", "minLength": 1 }, "ranges": { "$ref": "#/$defs/MarkRanges" } }
+    },
+    "ruleDecided": {
+      "type": "object",
+      "required": ["type", "annotationIds", "targetPath", "decision"],
+      "properties": {
+        "type": { "const": "ruleDecided" },
+        "annotationIds": { "type": "array", "items": { "$ref": "#/$defs/Id" } },
+        "targetPath": { "type": "string", "description": "The agent-instruction file that was updated; empty when dismissed without one." },
+        "decision": { "enum": ["applied", "dismissed"] }
+      }
+    }
+  }
+}

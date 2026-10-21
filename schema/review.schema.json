@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-review.example/schema/review.schema.json",
+  "title": "review.json",
+  "description": "Describes a review. Written once when the review is created and never rewritten: everything that changes later is an event.",
+  "type": "object",
+  "required": ["schemaVersion", "id", "title", "createdAt", "createdBy", "repo", "baseRef", "headRef", "mode", "pin"],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "description": "Also the folder name under reviews/. A ULID is recommended; readers accept any value matching the pattern."
+    },
+    "title": { "type": "string", "description": "The title at creation. A reviewRenamed event supersedes it." },
+    "createdAt": { "type": "integer", "minimum": 0, "description": "Milliseconds since the Unix epoch." },
+    "createdBy": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$", "description": "The device id that created the review." },
+    "repo": { "$ref": "#/$defs/Repo" },
+    "baseRef": { "type": "string", "minLength": 1, "description": "What the user chose as the base, for display and for retargeting." },
+    "headRef": { "type": "string", "minLength": 1 },
+    "mode": {
+      "enum": ["mergeBase", "direct"],
+      "description": "mergeBase: the diff starts at the merge-base of base and head (pull-request style). direct: it starts at the base tip."
+    },
+    "pin": {
+      "$ref": "#/$defs/Pin",
+      "description": "The commits at creation. A reviewRetargeted event supersedes it."
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "Repo": {
+      "type": "object",
+      "required": ["displayName"],
+      "properties": {
+        "displayName": { "type": "string", "minLength": 1, "description": "Usually the folder name of the repository." },
+        "originUrl": { "type": ["string", "null"], "description": "The origin URL when there is one." },
+        "rootCommit": {
+          "type": ["string", "null"],
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$",
+          "description": "The lexicographically smallest root commit reachable from the head. Null when unknown."
+        }
+      },
+      "additionalProperties": true
+    },
+    "Pin": {
+      "type": "object",
+      "required": ["baseSha", "baseTipSha", "headSha"],
+      "properties": {
+        "baseSha": { "$ref": "#/$defs/Sha", "description": "The left side of the diff: the merge-base in mergeBase mode, else the base tip." },
+        "baseTipSha": { "$ref": "#/$defs/Sha", "description": "What the base ref resolved to." },
+        "headSha": { "$ref": "#/$defs/Sha" }
+      },
+      "additionalProperties": true
+    },
+    "Sha": { "type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$", "description": "A full lowercase hexadecimal commit id." }
+  }
+}

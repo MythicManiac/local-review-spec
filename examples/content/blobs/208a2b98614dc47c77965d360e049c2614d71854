@@ -1,0 +1,4 @@
+# Calc demo
+A tiny calculator.
+Run tests with `pnpm test`.
+See the docs for more.

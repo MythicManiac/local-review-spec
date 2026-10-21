@@ -1,0 +1,4 @@
+export function twice(f: () => void) {
+  f();
+  f();
+}

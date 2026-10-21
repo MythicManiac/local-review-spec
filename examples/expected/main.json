@@ -1,0 +1,814 @@
+{
+  "review": "01M4XBCYR0AQJREYKYGS5WNERF",
+  "fold": {
+    "review": {
+      "id": "01M4XBCYR0AQJREYKYGS5WNERF",
+      "title": "Add calc module (round 2)",
+      "status": "done",
+      "createdAt": 1791986400000,
+      "createdBy": "01M2G3FCR0PPAX395GP8NM6G18",
+      "repo": {
+        "displayName": "calc-demo",
+        "originUrl": "https://example.com/acme/calc-demo.git",
+        "rootCommit": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42"
+      },
+      "baseRef": "master",
+      "headRef": "feature/calc",
+      "mode": "mergeBase",
+      "pin": {
+        "baseSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+        "baseTipSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+        "headSha": "302769e6a12380145e2c9f68835de42c89cc7439"
+      }
+    },
+    "annotations": [
+      {
+        "id": "01M4XBCYR1HFKQZ5Y8K10SJNNX",
+        "kind": "changeRequest",
+        "tags": [
+          "rule_candidate"
+        ],
+        "body": "Division by zero is not handled. `div` should reject `b === 0`. Please add a test too.",
+        "ruleText": "Guard against division by zero in arithmetic helpers.",
+        "status": "open",
+        "statusNote": null,
+        "deleted": false,
+        "createdAt": 1791986460000,
+        "createdBy": "01M2G3FCR0PPAX395GP8NM6G18",
+        "updatedAt": 1791988400000,
+        "anchor": {
+          "scope": "lines",
+          "path": "src/calc.ts",
+          "pin": {
+            "baseSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+            "baseTipSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+            "headSha": "cb9a8793d52c586a03d8b43ed24b56c291c2085a"
+          },
+          "ranges": [
+            {
+              "side": "new",
+              "startLine": 13,
+              "endLine": 15,
+              "snapshot": {
+                "lines": [
+                  "export function div(a: number, b: number): number {",
+                  "  return a / b;",
+                  "}"
+                ],
+                "before": [
+                  "  return a * b;",
+                  "}",
+                  ""
+                ],
+                "after": [
+                  "",
+                  "export const VERSION = \"1.1\";",
+                  "export const DEBUG = false;"
+                ]
+              }
+            }
+          ]
+        },
+        "ruleDecision": {
+          "decision": "applied",
+          "targetPath": "AGENTS.md"
+        },
+        "replies": [
+          {
+            "id": "01M4XBCYR2KAD999KXSXTJ4FR3",
+            "body": "Agreed, will fix.",
+            "deleted": false,
+            "createdAt": 1791986800000,
+            "createdBy": "01M39VEJR0JP64QRVXFGH4B0XV",
+            "updatedAt": 1791986800000
+          },
+          {
+            "id": "01M4XBCYR284B28NRCHM24CJFB",
+            "body": "Thanks! Please also cover `b = -0`.",
+            "deleted": false,
+            "createdAt": 1791986820000,
+            "createdBy": "01M2G3FCR0PPAX395GP8NM6G18",
+            "updatedAt": 1791986830000
+          },
+          {
+            "id": "01M4XBCYR2G01TY70M4FPWEN8J",
+            "body": "Wrong thread, sorry.",
+            "deleted": true,
+            "createdAt": 1791986840000,
+            "createdBy": "01M39VEJR0JP64QRVXFGH4B0XV",
+            "updatedAt": 1791986850000
+          }
+        ]
+      },
+      {
+        "id": "01M4XBCYR124WMFAXSCNP8Y4FP",
+        "kind": "comment",
+        "tags": [],
+        "body": "Looks fine.",
+        "ruleText": null,
+        "status": "open",
+        "statusNote": null,
+        "deleted": false,
+        "createdAt": 1791986470000,
+        "createdBy": "01M2G3FCR0PPAX395GP8NM6G18",
+        "updatedAt": 1791986470000,
+        "anchor": {
+          "scope": "lines",
+          "path": "src/calc.ts",
+          "pin": {
+            "baseSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+            "baseTipSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+            "headSha": "cb9a8793d52c586a03d8b43ed24b56c291c2085a"
+          },
+          "ranges": [
+            {
+              "side": "new",
+              "startLine": 9,
+              "endLine": 11,
+              "snapshot": {
+                "lines": [
+                  "export function mul(a: number, b: number): number {",
+                  "  return a * b;",
+                  "}"
+                ],
+                "before": [
+                  "  return a - b;",
+                  "}",
+                  ""
+                ],
+                "after": [
+                  "",
+                  "export function div(a: number, b: number): number {",
+                  "  return a / b;"
+                ]
+              }
+            }
+          ]
+        },
+        "ruleDecision": null,
+        "replies": []
+      },
+      {
+        "id": "01M4XBCYR12XE3P72D2Z99NG83",
+        "kind": "question",
+        "tags": [],
+        "body": "Why bump the minor version? Is this a breaking change?",
+        "ruleText": null,
+        "status": "resolved",
+        "statusNote": "Answered in the PR description.",
+        "deleted": false,
+        "createdAt": 1791986480000,
+        "createdBy": "01M39VEJR0JP64QRVXFGH4B0XV",
+        "updatedAt": 1791986900000,
+        "anchor": {
+          "scope": "lines",
+          "path": "src/calc.ts",
+          "pin": {
+            "baseSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+            "baseTipSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+            "headSha": "cb9a8793d52c586a03d8b43ed24b56c291c2085a"
+          },
+          "ranges": [
+            {
+              "side": "old",
+              "startLine": 9,
+              "endLine": 9,
+              "snapshot": {
+                "lines": [
+                  "export const VERSION = \"1.0\";"
+                ],
+                "before": [
+                  "  return a - b;",
+                  "}",
+                  ""
+                ],
+                "after": [
+                  "export const DEBUG = false;"
+                ]
+              }
+            },
+            {
+              "side": "new",
+              "startLine": 17,
+              "endLine": 17,
+              "snapshot": {
+                "lines": [
+                  "export const VERSION = \"1.1\";"
+                ],
+                "before": [
+                  "  return a / b;",
+                  "}",
+                  ""
+                ],
+                "after": [
+                  "export const DEBUG = false;"
+                ]
+              }
+            }
+          ]
+        },
+        "ruleDecision": null,
+        "replies": []
+      },
+      {
+        "id": "01M4XBCYR1ZKQQMJYRM52PK8AQ",
+        "kind": "comment",
+        "tags": [],
+        "body": "Nit: link the docs page.",
+        "ruleText": null,
+        "status": "open",
+        "statusNote": null,
+        "deleted": false,
+        "createdAt": 1791986490000,
+        "createdBy": "01M2G3FCR0PPAX395GP8NM6G18",
+        "updatedAt": 1791986490000,
+        "anchor": {
+          "scope": "lines",
+          "path": "README.md",
+          "pin": {
+            "baseSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+            "baseTipSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+            "headSha": "cb9a8793d52c586a03d8b43ed24b56c291c2085a"
+          },
+          "ranges": [
+            {
+              "side": "new",
+              "startLine": 3,
+              "endLine": 4,
+              "snapshot": {
+                "lines": [
+                  "Run tests with `pnpm test`.",
+                  "See the docs for more."
+                ],
+                "before": [
+                  "# Calc demo",
+                  "A tiny calculator."
+                ],
+                "after": []
+              }
+            }
+          ]
+        },
+        "ruleDecision": null,
+        "replies": []
+      },
+      {
+        "id": "01M4XBCYR1RGS3YXVK7P3KDG36",
+        "kind": "comment",
+        "tags": [
+          "rule_candidate"
+        ],
+        "body": "Is this helper used anywhere?",
+        "ruleText": null,
+        "status": "open",
+        "statusNote": null,
+        "deleted": false,
+        "createdAt": 1791986500000,
+        "createdBy": "01M39VEJR0JP64QRVXFGH4B0XV",
+        "updatedAt": 1791986500000,
+        "anchor": {
+          "scope": "file",
+          "path": "src/extra.ts",
+          "pin": {
+            "baseSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+            "baseTipSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+            "headSha": "cb9a8793d52c586a03d8b43ed24b56c291c2085a"
+          }
+        },
+        "ruleDecision": null,
+        "replies": []
+      },
+      {
+        "id": "01M4XBCYR1FHRB1B3899HY34VD",
+        "kind": "question",
+        "tags": [],
+        "body": "Please describe how to run the demo in the PR body.",
+        "ruleText": null,
+        "status": "open",
+        "statusNote": null,
+        "deleted": false,
+        "createdAt": 1791986510000,
+        "createdBy": "01M39VEJR0JP64QRVXFGH4B0XV",
+        "updatedAt": 1791986510000,
+        "anchor": {
+          "scope": "review"
+        },
+        "ruleDecision": null,
+        "replies": []
+      },
+      {
+        "id": "01M4XBCYR1DZ4KDQRGT5FFRYCF",
+        "kind": "comment",
+        "tags": [],
+        "body": "Is `noop` still needed?",
+        "ruleText": null,
+        "status": "wontFix",
+        "statusNote": "Kept for API compatibility.",
+        "deleted": false,
+        "createdAt": 1791986520000,
+        "createdBy": "01M2G3FCR0PPAX395GP8NM6G18",
+        "updatedAt": 1791987000000,
+        "anchor": {
+          "scope": "lines",
+          "path": "src/util.ts",
+          "pin": {
+            "baseSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+            "baseTipSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+            "headSha": "cb9a8793d52c586a03d8b43ed24b56c291c2085a"
+          },
+          "ranges": [
+            {
+              "side": "old",
+              "startLine": 5,
+              "endLine": 5,
+              "snapshot": {
+                "lines": [
+                  "export function noop() {}"
+                ],
+                "before": [
+                  "  return Math.min(Math.max(n, lo), hi);",
+                  "}",
+                  ""
+                ],
+                "after": []
+              }
+            }
+          ],
+          "oldPath": "src/util_old.ts"
+        },
+        "ruleDecision": null,
+        "replies": []
+      },
+      {
+        "id": "01M4XBCYR1SWEC1X8N1RRSYP0V",
+        "kind": "comment",
+        "tags": [],
+        "body": "`sub` could reuse `add` with a negated operand.",
+        "ruleText": null,
+        "status": "open",
+        "statusNote": null,
+        "deleted": false,
+        "createdAt": 1791986530000,
+        "createdBy": "01M2G3FCR0PPAX395GP8NM6G18",
+        "updatedAt": 1791989400000,
+        "anchor": {
+          "scope": "lines",
+          "path": "src/calc.ts",
+          "pin": {
+            "baseSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+            "baseTipSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+            "headSha": "302769e6a12380145e2c9f68835de42c89cc7439"
+          },
+          "ranges": [
+            {
+              "side": "new",
+              "startLine": 7,
+              "endLine": 9,
+              "snapshot": {
+                "lines": [
+                  "export function sub(a: number, b: number): number {",
+                  "  return a - b;",
+                  "}"
+                ],
+                "before": [
+                  "  return a + b;",
+                  "}",
+                  ""
+                ],
+                "after": [
+                  "",
+                  "export function mul(a: number, b: number): number {",
+                  "  return a * b;"
+                ]
+              }
+            }
+          ]
+        },
+        "ruleDecision": null,
+        "replies": []
+      },
+      {
+        "id": "01M4XBCYR1DVCW0CAM8JZV0R5X",
+        "kind": "changeRequest",
+        "tags": [],
+        "body": "Remove the legacy flag.",
+        "ruleText": null,
+        "status": "open",
+        "statusNote": null,
+        "deleted": true,
+        "createdAt": 1791986540000,
+        "createdBy": "01M39VEJR0JP64QRVXFGH4B0XV",
+        "updatedAt": 1791987100000,
+        "anchor": {
+          "scope": "lines",
+          "path": "src/legacy.ts",
+          "pin": {
+            "baseSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+            "baseTipSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+            "headSha": "cb9a8793d52c586a03d8b43ed24b56c291c2085a"
+          },
+          "ranges": [
+            {
+              "side": "old",
+              "startLine": 1,
+              "endLine": 1,
+              "snapshot": {
+                "lines": [
+                  "export const legacy = true;"
+                ],
+                "before": [],
+                "after": [
+                  "export function oldHelper() {",
+                  "  return 1;",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        "ruleDecision": null,
+        "replies": []
+      },
+      {
+        "id": "01M4XBCYR19VADZ9QYFRKFZXCW",
+        "kind": "comment",
+        "tags": [],
+        "body": "Add a doc comment.",
+        "ruleText": null,
+        "status": "open",
+        "statusNote": null,
+        "deleted": false,
+        "createdAt": 1791986550000,
+        "createdBy": "01M2G3FCR0PPAX395GP8NM6G18",
+        "updatedAt": 1791987120000,
+        "anchor": {
+          "scope": "lines",
+          "path": "src/calc.ts",
+          "pin": {
+            "baseSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+            "baseTipSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+            "headSha": "cb9a8793d52c586a03d8b43ed24b56c291c2085a"
+          },
+          "ranges": [
+            {
+              "side": "new",
+              "startLine": 1,
+              "endLine": 3,
+              "snapshot": {
+                "lines": [
+                  "export function add(a: number, b: number): number {",
+                  "  return a + b;",
+                  "}"
+                ],
+                "before": [],
+                "after": [
+                  "",
+                  "export function sub(a: number, b: number): number {",
+                  "  return a - b;"
+                ]
+              }
+            }
+          ]
+        },
+        "ruleDecision": null,
+        "replies": []
+      }
+    ],
+    "fileMarks": [
+      {
+        "path": "README.md",
+        "changeKey": "100644:100644:ff76b93889c477c670819023c0e56fcc671f5c97:208a2b98614dc47c77965d360e049c2614d71854"
+      },
+      {
+        "path": "assets/logo.bin",
+        "changeKey": "100644:100644:011cc62e758efe8c2d68cec80d95bfdbadb4e188:fd4dcd318a5149639d178bc5052bb428778eb27a"
+      },
+      {
+        "path": "src/calc.ts",
+        "changeKey": "100644:100644:dc517992f18b089f1bbc9348456fdfba0300c1f8:affc0dd923a40772f101fad1be71a76befbbe6ff"
+      }
+    ],
+    "regionEvents": [
+      {
+        "id": "01M4XCBFA0JD9SYMKGY8CBBDV2",
+        "ts": 1791987400000,
+        "dev": "01M2G3FCR0PPAX395GP8NM6G18",
+        "seq": 12,
+        "type": "reviewed",
+        "path": "src/calc.ts",
+        "ranges": [
+          {
+            "side": "new",
+            "startLine": 1,
+            "endLine": 3,
+            "blob": "affc0dd923a40772f101fad1be71a76befbbe6ff",
+            "hash": "9a30ac96b5d5c1b67eca69e1e2cf0798817d9578c8d7d904a81a67b983b35cba"
+          }
+        ]
+      },
+      {
+        "id": "01M4XCBS2GCYAV1MDXPAHY8ECM",
+        "ts": 1791987410000,
+        "dev": "01M2G3FCR0PPAX395GP8NM6G18",
+        "seq": 13,
+        "type": "reviewed",
+        "path": "src/calc.ts",
+        "ranges": [
+          {
+            "side": "new",
+            "startLine": 9,
+            "endLine": 11,
+            "blob": "affc0dd923a40772f101fad1be71a76befbbe6ff",
+            "hash": "20538202940ee9464b1251b5a23b400bf1faf7bd3d6aeb310a57b9993480d37d"
+          }
+        ]
+      },
+      {
+        "id": "01M4XCC2V0AN3E9Z5NWJ0XKB79",
+        "ts": 1791987420000,
+        "dev": "01M2G3FCR0PPAX395GP8NM6G18",
+        "seq": 14,
+        "type": "unreviewed",
+        "path": "src/calc.ts",
+        "ranges": [
+          {
+            "side": "new",
+            "startLine": 10,
+            "endLine": 10,
+            "blob": "affc0dd923a40772f101fad1be71a76befbbe6ff",
+            "hash": "a45ff996ce9f5e5647cb35997f9f3adaea012a48043bede3c7b81d7162a401d4"
+          }
+        ]
+      },
+      {
+        "id": "01M4XCCCKGY7YVBRWRFV0B0NHS",
+        "ts": 1791987430000,
+        "dev": "01M2G3FCR0PPAX395GP8NM6G18",
+        "seq": 15,
+        "type": "reviewed",
+        "path": "src/calc.ts",
+        "ranges": [
+          {
+            "side": "new",
+            "startLine": 13,
+            "endLine": 15,
+            "blob": "affc0dd923a40772f101fad1be71a76befbbe6ff",
+            "hash": "b23873612a0e037b539f972090cf944d6b4ddede560902c6f95e3c749b7e3a59"
+          }
+        ]
+      },
+      {
+        "id": "01M4XCCPC09XY8ZRV4C21ZJMCA",
+        "ts": 1791987440000,
+        "dev": "01M2G3FCR0PPAX395GP8NM6G18",
+        "seq": 16,
+        "type": "reviewed",
+        "path": "src/calc.ts",
+        "ranges": [
+          {
+            "side": "new",
+            "startLine": 17,
+            "endLine": 17,
+            "blob": "affc0dd923a40772f101fad1be71a76befbbe6ff",
+            "hash": "0541d3b90380af6aac869be3fd61282fd2e698bcf28f0dd2aff3ba3acdcf7360"
+          }
+        ]
+      },
+      {
+        "id": "01M4XCD04GH88H20V8FBR7ZMQ5",
+        "ts": 1791987450000,
+        "dev": "01M39VEJR0JP64QRVXFGH4B0XV",
+        "seq": 11,
+        "type": "reviewed",
+        "path": "src/calc.ts",
+        "ranges": [
+          {
+            "side": "new",
+            "startLine": 8,
+            "endLine": 8,
+            "blob": "affc0dd923a40772f101fad1be71a76befbbe6ff",
+            "hash": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+          }
+        ]
+      },
+      {
+        "id": "01M4XCD9X0JTXR523V626MJ8DT",
+        "ts": 1791987460000,
+        "dev": "01M39VEJR0JP64QRVXFGH4B0XV",
+        "seq": 12,
+        "type": "reviewed",
+        "path": "src/calc.ts",
+        "ranges": [
+          {
+            "side": "old",
+            "startLine": 9,
+            "endLine": 9,
+            "blob": "dc517992f18b089f1bbc9348456fdfba0300c1f8",
+            "hash": "84f67186ddec4acbdfffbf0abf0786f6b480f93fe77ba0ca1a259ba69d01767c"
+          },
+          {
+            "side": "new",
+            "startLine": 17,
+            "endLine": 17,
+            "blob": "affc0dd923a40772f101fad1be71a76befbbe6ff",
+            "hash": "0541d3b90380af6aac869be3fd61282fd2e698bcf28f0dd2aff3ba3acdcf7360"
+          }
+        ]
+      },
+      {
+        "id": "01M4XCDKNG9NEE8WHWVT3336B0",
+        "ts": 1791987470000,
+        "dev": "01M2G3FCR0PPAX395GP8NM6G18",
+        "seq": 17,
+        "type": "reviewed",
+        "path": "src/util.ts",
+        "ranges": [
+          {
+            "side": "new",
+            "startLine": 1,
+            "endLine": 3,
+            "blob": "33d2f5e00cad51acacafdddb6412b73e53244838",
+            "hash": "b653aaf813baa52719703ac76e8e75346901ba2aa2609a1d2558ad2898527e3f"
+          }
+        ]
+      },
+      {
+        "id": "01M4XEBJ30P300FHVFMAWMM9ZG",
+        "ts": 1791989500000,
+        "dev": "01M2G3FCR0PPAX395GP8NM6G18",
+        "seq": 25,
+        "type": "reviewed",
+        "path": "src/calc.ts",
+        "ranges": [
+          {
+            "side": "new",
+            "startLine": 15,
+            "endLine": 18,
+            "blob": "02b815d2979a533c31f9c906caa63a38d60ae71e",
+            "hash": "327f34ce0148717ae8e7928e3cae943085db8deb7f49d9d367305f3b9195d778"
+          }
+        ]
+      }
+    ],
+    "report": {
+      "events": 44,
+      "duplicates": 0,
+      "unknown": 0,
+      "ignoredLegacy": 0,
+      "orphans": 0,
+      "invalidEnvelopes": 0,
+      "tornTails": 0,
+      "corruptLines": []
+    }
+  },
+  "evaluated": {
+    "pin": {
+      "baseSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+      "baseTipSha": "f2fa38f399e8b0bc8edab7af5e8d0e1d7271af42",
+      "headSha": "302769e6a12380145e2c9f68835de42c89cc7439"
+    },
+    "annotations": {
+      "01M4XBCYR1HFKQZ5Y8K10SJNNX": {
+        "state": "outdated"
+      },
+      "01M4XBCYR124WMFAXSCNP8Y4FP": {
+        "state": "outdated",
+        "suggestion": {
+          "path": "src/calc.ts",
+          "ranges": [
+            {
+              "side": "new",
+              "startLine": 11,
+              "endLine": 13
+            }
+          ]
+        }
+      },
+      "01M4XBCYR12XE3P72D2Z99NG83": {
+        "state": "outdated",
+        "suggestion": {
+          "path": "src/calc.ts",
+          "ranges": [
+            {
+              "side": "old",
+              "startLine": 9,
+              "endLine": 9
+            },
+            {
+              "side": "new",
+              "startLine": 20,
+              "endLine": 20
+            }
+          ]
+        }
+      },
+      "01M4XBCYR1ZKQQMJYRM52PK8AQ": {
+        "state": "unchanged"
+      },
+      "01M4XBCYR1RGS3YXVK7P3KDG36": {
+        "state": "unchanged"
+      },
+      "01M4XBCYR1FHRB1B3899HY34VD": {
+        "state": "current"
+      },
+      "01M4XBCYR1DZ4KDQRGT5FFRYCF": {
+        "state": "unchanged"
+      },
+      "01M4XBCYR1SWEC1X8N1RRSYP0V": {
+        "state": "current"
+      },
+      "01M4XBCYR1DVCW0CAM8JZV0R5X": {
+        "state": "unchanged"
+      },
+      "01M4XBCYR19VADZ9QYFRKFZXCW": {
+        "state": "outdated",
+        "suggestion": {
+          "path": "src/calc.ts",
+          "ranges": [
+            {
+              "side": "new",
+              "startLine": 3,
+              "endLine": 5
+            }
+          ]
+        }
+      }
+    },
+    "fileMarks": [
+      {
+        "path": "README.md",
+        "state": "valid"
+      },
+      {
+        "path": "assets/logo.bin",
+        "state": "valid"
+      },
+      {
+        "path": "src/calc.ts",
+        "state": "stale"
+      }
+    ],
+    "regions": [
+      {
+        "path": "src/calc.ts",
+        "side": "new",
+        "reviewed": [
+          [
+            3,
+            5
+          ],
+          [
+            11,
+            11
+          ],
+          [
+            13,
+            13
+          ],
+          [
+            15,
+            18
+          ],
+          [
+            20,
+            20
+          ]
+        ],
+        "stale": [
+          {
+            "blob": "affc0dd923a40772f101fad1be71a76befbbe6ff",
+            "startLine": 8,
+            "endLine": 8
+          },
+          {
+            "blob": "affc0dd923a40772f101fad1be71a76befbbe6ff",
+            "startLine": 13,
+            "endLine": 15
+          }
+        ]
+      },
+      {
+        "path": "src/calc.ts",
+        "side": "old",
+        "reviewed": [
+          [
+            9,
+            9
+          ]
+        ],
+        "stale": []
+      },
+      {
+        "path": "src/util.ts",
+        "side": "new",
+        "reviewed": [
+          [
+            1,
+            3
+          ]
+        ],
+        "stale": []
+      }
+    ]
+  }
+}

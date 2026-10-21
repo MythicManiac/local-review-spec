@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 2,
+  "id": "20261014-1530-edge-cases",
+  "title": "Edge cases of the event logs",
+  "createdAt": 1791122400000,
+  "createdBy": "01M43KDRR0MMCVQZXNRQY7WDSK",
+  "repo": {
+    "displayName": "edge-demo",
+    "originUrl": null,
+    "rootCommit": null
+  },
+  "baseRef": "main",
+  "headRef": "topic",
+  "mode": "direct",
+  "pin": {
+    "baseSha": "1111111111111111111111111111111111111111",
+    "baseTipSha": "1111111111111111111111111111111111111111",
+    "headSha": "2222222222222222222222222222222222222222"
+  }
+}

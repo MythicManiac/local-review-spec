@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-review.example/schema/group.schema.json",
+  "title": "group.json",
+  "description": "Marks a git repository as a review group. Written once when the group is created. Readers ignore unknown properties.",
+  "type": "object",
+  "required": ["schemaVersion", "id", "createdAt"],
+  "properties": {
+    "schemaVersion": {
+      "const": 2,
+      "description": "Version of this format. A reader that does not know the version refuses the group and says so."
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "description": "Opaque identifier. Never the only handle a tool keeps for a group: it can change when two groups are joined."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Display name. Optional: tools fall back to the folder name."
+    },
+    "createdAt": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Milliseconds since the Unix epoch."
+    }
+  },
+  "additionalProperties": true
+}

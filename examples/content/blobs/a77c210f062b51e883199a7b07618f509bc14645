@@ -1,0 +1,4 @@
+export const legacy = true;
+export function oldHelper() {
+  return 1;
+}

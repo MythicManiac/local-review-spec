@@ -1,0 +1,3 @@
+# Fixtures are byte-exact: blob hashes and CRLF/torn-line cases are part of the tests.
+examples/** -text
+*.bundle binary

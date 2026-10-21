@@ -1,0 +1,106 @@
+{
+  "review": "20261014-1530-edge-cases",
+  "fold": {
+    "review": {
+      "id": "20261014-1530-edge-cases",
+      "title": "Edge cases of the event logs",
+      "status": "open",
+      "createdAt": 1791122400000,
+      "createdBy": "01M43KDRR0MMCVQZXNRQY7WDSK",
+      "repo": {
+        "displayName": "edge-demo",
+        "originUrl": null,
+        "rootCommit": null
+      },
+      "baseRef": "main",
+      "headRef": "topic",
+      "mode": "direct",
+      "pin": {
+        "baseSha": "1111111111111111111111111111111111111111",
+        "baseTipSha": "1111111111111111111111111111111111111111",
+        "headSha": "2222222222222222222222222222222222222222"
+      }
+    },
+    "annotations": [
+      {
+        "id": "x-annotation",
+        "kind": "question",
+        "tags": [
+          "rule_candidate"
+        ],
+        "body": "re-imported",
+        "ruleText": "Keep imports idempotent.",
+        "status": "resolved",
+        "statusNote": "done",
+        "deleted": false,
+        "createdAt": 1791986401000,
+        "createdBy": "01M43KDRR0MMCVQZXNRQY7WDSK",
+        "updatedAt": 1791986403000,
+        "anchor": {
+          "scope": "file",
+          "path": "a.txt",
+          "pin": {
+            "baseSha": "1111111111111111111111111111111111111111",
+            "baseTipSha": "1111111111111111111111111111111111111111",
+            "headSha": "2222222222222222222222222222222222222222"
+          }
+        },
+        "ruleDecision": null,
+        "replies": [
+          {
+            "id": "r-1",
+            "body": "a reply, edited",
+            "deleted": false,
+            "createdAt": 1791986401100,
+            "createdBy": "01M43KDRR0MMCVQZXNRQY7WDSK",
+            "updatedAt": 1791986401600
+          }
+        ]
+      },
+      {
+        "id": "y-annotation",
+        "kind": "changeRequest",
+        "tags": [],
+        "body": "second thread",
+        "ruleText": null,
+        "status": "open",
+        "statusNote": null,
+        "deleted": false,
+        "createdAt": 1791986401700,
+        "createdBy": "01M48R76R0AGCFYC66PVPH3SNW",
+        "updatedAt": 1791986401800,
+        "anchor": {
+          "scope": "review"
+        },
+        "ruleDecision": null,
+        "replies": [
+          {
+            "id": "r-2",
+            "body": "survives the damaged line",
+            "deleted": false,
+            "createdAt": 1791986401800,
+            "createdBy": "01M48R76R0AGCFYC66PVPH3SNW",
+            "updatedAt": 1791986401800
+          }
+        ]
+      }
+    ],
+    "fileMarks": [],
+    "regionEvents": [],
+    "report": {
+      "events": 9,
+      "duplicates": 1,
+      "unknown": 2,
+      "ignoredLegacy": 3,
+      "orphans": 1,
+      "invalidEnvelopes": 1,
+      "tornTails": 1,
+      "corruptLines": [
+        {
+          "file": "01M48R76R0AGCFYC66PVPH3SNW.jsonl",
+          "line": 2
+        }
+      ]
+    }
+  }
+}

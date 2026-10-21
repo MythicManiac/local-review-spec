@@ -1,0 +1,3 @@
+{"v":1,"id":"ea-0001","ts":1791986401000,"dev":"01M43KDRR0MMCVQZXNRQY7WDSK","seq":1,"ev":{"type":"annotationCreated","annotationId":"x-annotation","kind":"comment","tags":[],"body":"first","anchor":{"scope":"file","path":"a.txt","pin":{"baseSha":"1111111111111111111111111111111111111111","baseTipSha":"1111111111111111111111111111111111111111","headSha":"2222222222222222222222222222222222222222"}}}}
+{"v":1,"id":"ea-0002","ts":1791986401100,"dev":"01M43KDRR0MMCVQZXNRQY7WDSK","seq":2,"ev":{"type":"replyAdded","annotationId":"x-annotation","replyId":"r-1","body":"a reply"}}
+{"v":1,"id":"dup-0000000001","ts":1791986401200,"dev":"01M43KDRR0MMCVQZXNRQY7WDSK","seq":3,"ev":{"type":"annotationStatusChanged","annotationId":"x-annotation","status":"resolved","note":"done"}}
