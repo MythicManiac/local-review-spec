@@ -48,7 +48,8 @@ change-set command (SPEC 8: the app runs exactly it, plus a `--full-index` that 
    still `fsync`ed. Stop writing `draftSaved`, `draftDiscarded`, `positionSaved`.
 9. **Device id**: unchanged, but never shared with another tool.
 10. **Tests**: add the fold and evaluation vectors. Existing store tests that pin hunk marks or the flat
-    anchor change with items 4 and 6.
+    anchor change with items 4 and 6. Optional, not required for now: tests for a leftover `.lock` file with
+    no holder and for a killed holder (the app tests only "second open while held" and "open after drop").
 
 **No migration.** The app's earlier format (schemaVersion 1) held no real data. The app does not read it: a
 `review.json` or `group.json` below version 2 is reported as an older format and skipped (SPEC 2.2), and a

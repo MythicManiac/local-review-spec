@@ -257,6 +257,13 @@ styles are correct, and instances using different styles can run together.
 A writer MUST NOT rewrite, truncate, reorder or delete lines of any log, its own included. Corrections
 are new events.
 
+*Note (informative).* A crash cannot leave the device lock stuck, because it is held on an open handle, which
+the operating system releases when the process dies; the `.lock` file that remains is harmless and is not
+consulted. This holds only for a lock implemented that way, not for one that treats the existence of the
+file as the lock. Checked for the app's call (`File::try_lock`) on Windows: a force-killed holder released
+the lock at once, and a child process that outlived it did not keep it. A process that hangs without dying
+keeps a session-long lock until it is killed; the per-event style limits that.
+
 ### 5.3 Reading
 
 A reader MUST NOT fail because of the content of a log. It MUST handle, and count for reporting:
@@ -493,6 +500,12 @@ after writes and when it closes. The author is the user's configured git identit
 `Local Review <local-review@localhost>`. A failed commit never loses data (the files are already durable)
 and MUST be reported. A tool MUST NOT commit while another tool's git operation holds `index.lock`; it
 retries briefly.
+
+*Note (informative).* A crash during a git command can leave `.git/index.lock` behind, and every later
+commit then fails until it is removed; git does not clear it by itself. No review data is affected, only
+history and syncing. This format does not say how a tool recovers: reporting git's message (which names the
+file) is enough, and whether a tool offers to remove it, or removes one older than some age, is left open
+(DECISIONS, known limits).
 
 ### 9.3 Sync
 

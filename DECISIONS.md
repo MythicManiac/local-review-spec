@@ -116,6 +116,15 @@ emit `fileReviewed` automatically when regions cover a file.
 - **Several IDEs, one device id.** With one id per machine (U7) the IDEs append through the per-event lock of
   SPEC 5.2 and can all write to one review. A host that holds the lock for a whole session makes the others
   read-only for that review; both styles are allowed.
+- **Stale locks.** The device lock cannot go stale after a crash (an OS lock on an open handle; a leftover
+  `.lock` file is harmless), provided a tool implements it that way. Git's own `.git/index.lock` can: a crash
+  during a git command leaves it, and commits and syncing fail until it is removed. Nothing is lost, and the
+  committer reports git's message. **Undecided**, deliberately not specified: whether a tool offers to remove
+  it on user confirmation, or removes one older than some age (state-repo git operations take milliseconds).
+  Also not specified: how long to wait for a held device lock (about 3 seconds suggested), that the lock
+  handle must not be inherited by child processes (true for the app's Rust handle; the plugin's Java handle
+  is unchecked), that `git clean -fdx` could delete a held lock file, and that a hung process holds a
+  session-long lock until it is killed. All judged rare.
 - **Old-layout folder named `reviews`.** A 0.1.0 review of a repository called `reviews` sits where a
   version 2 review goes. It is reported and not imported automatically (CONFORMANCE).
 - **Re-importing is by id, not by time.** An import after a 0.1.0 device changed a file adds events with new
@@ -161,3 +170,4 @@ check of the app against the spec. No tool has implemented any draft, so the for
 | SPEC 5.1: a tool SHOULD detect that its device id was copied (machine identifier beside the id; new id on mismatch); the group's folder and the folder holding ids and locks SHOULD be on a local disk | The plugin keeps its id in `.state/` inside the store root, which a file-sync service could copy to another machine; OS locks are unreliable on network and cloud-synced folders. |
 | ALGORITHMS 6: ranges for marks come from a whitespace-sensitive comparison; changed lines may come from the tool's own engine and need not agree between tools | A viewer that ignores whitespace could never mark a whitespace-only change. IDE and git choose different hunks around repeated lines; nothing stored depends on it. |
 | CONFORMANCE: the plugin's verified plan for lines from blobs (probes on 11 awkward files: only a lone CR changes the IDE's numbering), for unified selections, for the lock and the device id, and the exact flags `GitCli.diffRaw` lacks | Recorded so the implementation starts from what was measured. |
+| Informative notes on stale locks (SPEC 5.2, 9.2); no new requirements | Raised after asking whether a crash can leave a lock stuck. Judged rare enough not to specify further for now. |
