@@ -76,3 +76,8 @@ tools/
 
 User interface, gestures and wording; when to sync; export formats; how a model drafts agent rules; where a
 tool keeps its configuration; authentication. Those stay with each tool.
+
+## License
+
+Apache License 2.0, see [LICENSE](LICENSE). The specification, the examples and the reference implementation may be copied into
+the projects that implement the format (the standalone app, the IDE plugin) under that license.
