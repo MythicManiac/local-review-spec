@@ -43,7 +43,7 @@ draft 3" in DECISIONS.md.
 Needs Node 20 or newer (and git, only to rebuild the fixture or run the sync experiment). No packages.
 
 ```
-node tools/selftest.mjs                       # 56 checks: algorithms, text and repository-file rules, the example, expected/ is current
+node tools/selftest.mjs                       # 55 checks: algorithms, text and repository-file rules, the example, expected/ is current
 node tools/sync-experiment.mjs                # real git: 10 experiments (union merge, joining groups, autocrlf, older groups, effective rules)
 node tools/fold.mjs examples/state/reviews/<id> --content examples/content    # fold and evaluate a review
 ```

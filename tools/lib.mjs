@@ -103,32 +103,17 @@ export function appendMissing(text, required) {
 }
 
 /**
- * A merge conflict in .gitignore or .gitattributes (SPEC 9.3). `base` is the common ancestor's text ("" when
- * there is none, as when two groups are joined). Git applies the LAST matching line, so order matters:
- *
- *   1. the lines of the base, in their order;
- *   2. what each side added, each side's lines kept together and in the order that side wrote them, the
- *      two blocks ordered by their UTF-8 bytes (so the result does not depend on which side is "ours");
- *   3. the required lines, last, in their order, so that nothing anyone wrote can override them.
- *
- * Blank lines and duplicates are dropped (the first occurrence stays). A line that one side removed and the
- * other kept stays: nothing is lost. Both devices write the same bytes.
+ * A merge conflict in .gitignore or .gitattributes (SPEC 9.3). Both files belong to the tools, so the only
+ * ordering that matters is that git applies the LAST matching line: the required lines go last, in their
+ * order, so nothing else in the file can override them. Before them come the other lines of either version
+ * (blank lines and duplicates removed), sorted by UTF-8 bytes. Symmetric, so both devices write the same
+ * bytes; a line that either side has is kept, so nothing is lost.
  */
-export function mergeRepoFile(required, base, ours, theirs) {
-  const clean = (t) => repoFileLines(t).filter((l) => l !== "");
-  const baseLines = clean(base);
-  const inBase = new Set(baseLines);
-  const added = (t) => [...new Set(clean(t).filter((l) => !inBase.has(l)))];
-  const bytes = (block) => Buffer.from(block.join("\n"), "utf8");
-  const blocks = [added(ours), added(theirs)].filter((b) => b.length > 0).sort((x, y) => Buffer.compare(bytes(x), bytes(y)));
-  const emitted = new Set(required); // the required lines go last, wherever they were before
-  const out = [];
-  for (const l of [...baseLines, ...blocks.flat()]) {
-    if (emitted.has(l)) continue;
-    emitted.add(l);
-    out.push(l);
-  }
-  return `${[...out, ...required].join("\n")}\n`;
+export function mergeRepoFile(required, ours, theirs) {
+  const req = new Set(required);
+  const others = new Set([...repoFileLines(ours), ...repoFileLines(theirs)].filter((l) => l !== "" && !req.has(l)));
+  const sorted = [...others].sort((a, b) => Buffer.compare(Buffer.from(a, "utf8"), Buffer.from(b, "utf8")));
+  return `${[...sorted, ...required].join("\n")}\n`;
 }
 
 // ---------------------------------------------------------------------------------------------

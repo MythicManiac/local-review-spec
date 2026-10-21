@@ -69,11 +69,13 @@ and its own lock file.
 /reviews/*/local/
 ```
 
-Either file MAY contain other lines before or after them (a tool's own patterns, or lines a group got from
-an older tool). Lines are compared exactly after removing one trailing `\r`. **Order matters:** git applies
-the last line that matches, so a required line that is present can still be overridden by a later one
-(`* text=auto` after `* -text`, or `!*.lock` after `*.lock`). What counts is whether git honours the rule
-(see *Effective rules* below), not whether the line is there.
+Both files belong to the tools: nobody is expected to edit them, and a tool never needs their other lines
+to mean anything. A tool MAY add lines of its own. Lines are compared exactly after removing one trailing
+`\r`. Git applies the **last** line that matches, so a required line that is present can still be
+overridden by a later one (`* text=auto` after `* -text`). That cannot happen between tools that follow
+this section, but a line can arrive from elsewhere (a template a hosting provider added to a new remote, a
+hand edit, another version of this format), so what counts is whether git honours the rule (see
+*Effective rules* below), not whether the line is there.
 
 Why: `* -text` keeps log bytes exact on machines with `core.autocrlf=true` (verified, see
 `tools/sync-experiment.mjs`); `merge=union` is git's built-in driver that keeps both sides' lines when
@@ -83,7 +85,8 @@ device-local data out of history.
 **Creating a group.** A tool MUST write both files containing exactly the lines above, in this order, each
 line ending in `\n`.
 
-**Opening a group.** A tool MUST check both files and MUST commit any change it makes:
+**Opening a group.** A tool MUST do steps 1 and 2 for both files, SHOULD do step 3, and MUST commit any
+change it makes:
 
 1. If a file is missing, create it as for a new group.
 2. If a file lacks some required lines, append the missing ones, in the order above, at the end (first
@@ -91,10 +94,10 @@ line ending in `\n`.
    The point is groups made by older tools, which have a `.gitignore` of only `*.tmp` and no
    `.gitattributes`: without the missing lines, lock files and device-local data would be committed and
    synced.
-3. Check the **effective rules** below. For each required line that git does not honour, append that line
-   again at the end, where it is the last match. It MUST NOT remove or edit the line that overrode it. If a
-   rule is still not honoured (an override git reads from outside the group's own files, such as
-   `.git/info/attributes`, which a tool must not edit), warn the user and name the rule.
+3. A tool SHOULD check the **effective rules** below. For each required line that git does not honour,
+   append that line again at the end, where it is the last match. It MUST NOT remove or edit the line that
+   overrode it. If a rule is still not honoured (an override git reads from outside the group's own files,
+   such as `.git/info/attributes`, which a tool must not edit), warn the user and name the rule.
 
 **Effective rules.** A line being present is not enough. Ask git, in the group's working tree, with these
 probe paths (they need not exist). `tools/repocheck.mjs` is a reference implementation.
@@ -471,7 +474,7 @@ union driver). A merge may still conflict in exactly these cases, which a tool M
 | Conflicted path   | Resolution                                                                              |
 | ----------------- | --------------------------------------------------------------------------------------- |
 | `group.json`      | Two groups created apart were joined. Keep the file with the smaller `createdAt`; on a tie the smaller `id` by UTF-8 bytes. A `createdAt` that is not an integer (an ISO-8601 string from an older tool) is converted; if it cannot be, it loses. Both devices make the same choice. |
-| `.gitattributes`, `.gitignore` | Git applies the last matching line, so order matters. Write, in this order: the lines of the common ancestor's version (none if there is no ancestor, as when two groups are joined); then what each side added, each side's lines kept together and in the order that side wrote them, the two blocks ordered by their UTF-8 bytes; then the required lines of 2.1, last, in their order. Blank lines and repeated lines are dropped (the first stays); a line one side removed and the other kept stays; every line ends in `\n`. Both devices write the same bytes, and nothing written by anyone can come after, and so override, a required line. (Such a conflict arises when two devices each added different lines at the end of the same file, for example while bringing an older group up to 2.1. `mergeRepoFile` in `tools/lib.mjs`; experiments 5b and 6b.) |
+| `.gitattributes`, `.gitignore` | Git applies the last matching line, so write the other lines first and the required lines last: every line of either version that is not a required line (blank lines and repeated lines dropped), sorted by UTF-8 bytes, then the required lines of 2.1 in their order; every line ends in `\n`. Both devices write the same bytes, and nothing else in the file can come after, and so override, a required line. (Such a conflict arises only when two devices each added different lines to the same file, for example devices on different versions of this format. `mergeRepoFile` in `tools/lib.mjs`; experiments 5b and 6b.) |
 | anything else     | `git merge --abort`. Report the path and leave the user's data exactly as it was. A tool MUST NOT choose a winner and MUST NOT keep a loser as a side file: there is no case in which dropping or hiding one side is correct. |
 
 After a successful pull a tool re-reads the reviews that changed and updates what the user sees.

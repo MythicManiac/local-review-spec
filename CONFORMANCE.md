@@ -15,15 +15,15 @@ The app's current events are close to this format; most work is additive.
 1. **`group.json`**: write `schemaVersion: 2`, `createdAt`; make `name` optional (fall back to the folder
    name). Reading a group the plugin made currently fails with `` missing field `name` ``.
 2. **Repository files**: new groups get the exact `.gitattributes` and `.gitignore` of SPEC 2.1. When
-   opening a group, **append the lines that are missing**, then check the **effective rules** with git
-   (SPEC 2.1; `tools/repocheck.mjs`) and append again any required line a later line overrides; commit,
-   and never rewrite or remove a line. (Today the app writes `* -text` and `*.lock`, `*.tmp` only at group
-   creation, and a group the plugin made has a `.gitignore` of only `*.tmp` and no `.gitattributes`.)
+   opening a group, **append the lines that are missing**; commit; never rewrite or remove a line. A
+   SHOULD on top: check the **effective rules** with git (`tools/repocheck.mjs`) and append again any
+   required line a later line overrides. (Today the app writes `* -text` and `*.lock`, `*.tmp` only at
+   group creation, and a group the plugin made has a `.gitignore` of only `*.tmp` and no `.gitattributes`.)
 3. **Sync**: merge with `--allow-unrelated-histories`; resolve a `group.json` conflict by the rule in SPEC
-   9.3, and a `.gitattributes` or `.gitignore` conflict by the order-preserving rule there
-   (`mergeRepoFile(required, base, ours, theirs)` in `tools/lib.mjs`; the base is `git show :1:<file>`, and
-   empty when there is none); retry a rejected push up to three times; keep aborting on any other conflict.
-   Use the user's git identity when set.
+   9.3, and a `.gitattributes` or `.gitignore` conflict by the rule there (the other lines of both
+   versions, sorted, then the required lines last: `mergeRepoFile(required, ours, theirs)` in
+   `tools/lib.mjs`, no merge base needed); retry a rejected push up to three times; keep aborting on any
+   other conflict. Use the user's git identity when set.
 4. **Anchors** become `{scope, path, oldPath?, pin, ranges[]}` with the snapshot per range (today:
    `{path, oldPath, side, startLine, endLine, pin, snapshot}`, which is replaced, not read). Add the
    `review` scope (a place in the UI for review-level comments) and the second range (a selection spanning
@@ -61,9 +61,9 @@ the user made for it are recorded in DECISIONS (U7 and the plugin scope below).
    group, not `<repo-name>/<review-id>/`. New groups get the exact repository files of SPEC 2.1. *Draft 3:*
    groups made by 0.1.0 have a `.gitignore` of only `*.tmp` and no `.gitattributes`; on opening such a
    group the plugin appends the missing lines, checks the effective rules with git and appends again any
-   that a later line overrides (SPEC 2.1), and commits, so lock files and device-local data are never
-   committed. Keep the old `.state/` outside the group for last-opened pointers, the repository to group
-   choice and the device id.
+   that a later line overrides (SPEC 2.1, a SHOULD), and commits, so lock files and device-local data are
+   never committed. Keep the old `.state/` outside the group for last-opened pointers, the repository to
+   group choice and the device id.
 2. **Device id** *(draft 3, decided by the user)*: one per **machine**, generated once and kept in
    `.state/`, shared by every IDE on the machine that runs the plugin (SPEC 5.1, *Hosts*). It is not kept in
    IDE settings, which Settings Sync could copy to another machine. Consequences the plugin has to handle:

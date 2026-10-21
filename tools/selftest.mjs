@@ -79,35 +79,26 @@ test("repo files: a file that has every line is returned unchanged, whatever els
   assert.equal(appendMissing(t, GITIGNORE_LINES), t);
 });
 const REQ_IGN = GITIGNORE_LINES.join("\n");
-test("repo files: a conflict keeps each side's additions together and in order, required lines last, identically on both sides", () => {
-  const base = "*.tmp\n";
+test("repo files: a conflict keeps the lines of both sides, sorted, with the required lines last, identically on both sides", () => {
   const a = "*.tmp\n*.lock\n/reviews/*/local/\nbuild/\n";
   const b = "*.tmp\n*.lock\n/reviews/*/local/\ndist/\n\n";
   const want = `build/\ndist/\n${REQ_IGN}\n`;
-  assert.equal(mergeRepoFile(GITIGNORE_LINES, base, a, b), want);
-  assert.equal(mergeRepoFile(GITIGNORE_LINES, base, b, a), want);
+  assert.equal(mergeRepoFile(GITIGNORE_LINES, a, b), want);
+  assert.equal(mergeRepoFile(GITIGNORE_LINES, b, a), want);
 });
-test("repo files: nothing a user wrote can come after, and so override, a required line", () => {
+test("repo files: nothing else in the file can come after, and so override, a required line", () => {
   const base = "* -text\n*.jsonl merge=union\n";
   const ours = `${base}* text=auto eol=crlf\n`;
   const theirs = `${base}*.png binary\n`;
-  const merged = mergeRepoFile(GITATTRIBUTES_LINES, base, ours, theirs);
+  const merged = mergeRepoFile(GITATTRIBUTES_LINES, ours, theirs);
   assert.equal(merged, "* text=auto eol=crlf\n*.png binary\n* -text\n*.jsonl merge=union\n");
-  assert.equal(merged, mergeRepoFile(GITATTRIBUTES_LINES, base, theirs, ours));
+  assert.equal(merged, mergeRepoFile(GITATTRIBUTES_LINES, theirs, ours));
 });
-test("repo files: a negation stays after the pattern it re-includes", () => {
-  const base = "*.tmp\n";
-  const ours = `${base}*.lock\n/reviews/*/local/\nbuild/*\n!build/keep.txt\n`;
-  const theirs = `${base}*.lock\n/reviews/*/local/\n`;
-  const merged = mergeRepoFile(GITIGNORE_LINES, base, ours, theirs);
-  assert.equal(merged, `build/*\n!build/keep.txt\n${REQ_IGN}\n`);
-  assert.equal(merged, mergeRepoFile(GITIGNORE_LINES, base, theirs, ours));
+test("repo files: two groups joined (no common ancestor) merge the same way", () => {
+  assert.equal(mergeRepoFile(GITIGNORE_LINES, "*.tmp\n", "*.tmp\nout/\n"), `out/\n${REQ_IGN}\n`);
 });
-test("repo files: with no common ancestor (two groups joined) both files are kept, required lines last", () => {
-  assert.equal(mergeRepoFile(GITIGNORE_LINES, "", "*.tmp\n", "*.tmp\nout/\n"), `out/\n${REQ_IGN}\n`);
-});
-test("repo files: a line one side removed and the other kept stays: nothing is lost", () => {
-  assert.equal(mergeRepoFile(GITIGNORE_LINES, "x\ny\n", "x\n", "x\ny\n"), `x\ny\n${REQ_IGN}\n`);
+test("repo files: CRLF line ends and blank lines do not matter", () => {
+  assert.equal(mergeRepoFile(GITIGNORE_LINES, "a\r\n\r\n", "a\n"), `a\n${REQ_IGN}\n`);
 });
 
 // ---- intervals ------------------------------------------------------------------------------
