@@ -235,20 +235,23 @@ lock on `<device-id>.lock`, **never** on the log itself (a lock on the log can s
 and then the commit fails):
 
 1. take the lock, waiting briefly if another instance of this device holds it;
-2. read the end of the log: the `ts` and `seq` of its last complete line, and whether the file ends in
-   `\n`;
+2. read the end of the log: the `ts` and `seq` of its last line that is a valid event envelope (section 5,
+   whatever the type of the event in it, so that a newer tool's events count), found by scanning back from
+   the end, and whether the file ends in `\n`. A line that is not a valid envelope is skipped: it can be a
+   cut-off fragment that an earlier writer closed with a `\n` in step 3 and then died before appending. If
+   the log has no valid line there is nothing to read;
 3. if the file does not end in `\n` (a previous write was cut off), write `\n` first;
-4. append the event as one JSON object and `\n`, with a new unique `id`, `seq` one more than the last
-   line's (1 for an empty log), and a `ts` greater than the last line's and than the writer's own previous
-   event, even if the clock went backwards; flush to the operating system and `fsync`;
+4. append the event as one JSON object and `\n`, with a new unique `id`, `seq` one more than that line's
+   (1 if there is none), and a `ts` greater than that line's (if there is one) and than the writer's own
+   previous event, even if the clock went backwards; flush to the operating system and `fsync`;
 5. release the lock (see below for holding it longer);
 
 and tell the user the change is saved **only after** the `fsync` returned. An instance that cannot take
 the lock within a short wait MUST report that the change was not saved; it MUST NOT write without the lock.
 
-Reading the last line under the lock is what lets several instances of one device (5.1, *Hosts*) share a
-log: none of them relies on a `ts` or `seq` it remembered, because another instance may have appended
-since. Their appends are serialized by the lock, so none interleaves.
+Reading the end of the log under the lock is what lets several instances of one device (5.1, *Hosts*)
+share a log: none of them relies on a `ts` or `seq` it remembered, because another instance may have
+appended since. Their appends are serialized by the lock, so none interleaves.
 
 A writer MAY instead keep the lock for as long as it has the review open. Other instances of that device
 then cannot take it, and treat the review as read-only while it lasts (they still read and show it). Both
@@ -457,6 +460,12 @@ deletions plus additions; `diff.ignoreSubmodules` can hide a changed submodule. 
 configuration would then disagree on file identity and `changeKey`, and with it on file marks and file
 anchors (`tools/changeset-experiment.mjs` shows both effects). Above the pinned limit git still skips
 inexact renames, the same way for every conforming tool, so the results agree.
+
+A tool MUST run it with git's working directory at the **top level of the reviewed repository** (for
+example `git -C <root> …`). With `diff.relative` set in the user's configuration, git run from a
+subdirectory reports only that subdirectory's files, with paths relative to it, and the change set would
+silently shrink (`tools/changeset-experiment.mjs`, check 4). A path in the change set is always relative to
+the top level (section 3, *Path*).
 
 The identity `path` of a file is its new path, or its old path if deleted. The **new side** of a file is
 the blob `newBlob` (absent if the file was deleted); the **old side** is `oldBlob` (absent if the file was

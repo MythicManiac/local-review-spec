@@ -179,3 +179,13 @@ check of the app against the spec. No tool has implemented any draft, so the for
 | CONFORMANCE: the plugin's verified plan for lines from blobs (probes on 11 awkward files: only a lone CR changes the IDE's numbering), for unified selections, for the lock and the device id, and the exact flags `GitCli.diffRaw` lacks | Recorded so the implementation starts from what was measured. |
 | Informative notes on stale locks (SPEC 5.2, 9.2); no new requirements | Raised after asking whether a crash can leave a lock stuck. Judged rare enough not to specify further for now. |
 | U12 recorded: reviewed marks relocate only when unique (confirmed by the user); the earlier "nearest" wording is gone | The user's first choice was "exact relocation (unique, nearest)"; the spec narrowed it to unique and flagged that. After seeing the tradeoffs and a measurement, the user confirmed unique-only. |
+
+## Changes since draft 5
+
+Draft 6 is the wording pass the plugin developer asked for after re-reading draft 5. No tool has implemented
+any draft, so the format version stays 2.
+
+| Change | Why |
+| ------ | --- |
+| SPEC 5.2 step 2: the writer reads the `ts` and `seq` of the last line that is a **valid event envelope** (any event type), scanning back from the end; if there is none, `seq` is 1 and `ts` is only bounded by the writer's own previous event | Draft 5 said "last complete line". A writer that adds the `\n` after a torn tail (step 3) and then dies leaves an invalid fragment as the last complete line, and the next writer would have nothing to read. A newer tool's events must count too, so any type is accepted. |
+| SPEC 8: a tool MUST run the change-set command with git's working directory at the top level of the reviewed repository | With `diff.relative` set in a user's configuration, the same command run from a subdirectory reports only that subdirectory's files with shortened paths; no flag of the command prevents it (`tools/changeset-experiment.mjs`, check 4). Running at the top level was chosen over adding `--no-relative`, which needs git 2.28 or newer. |

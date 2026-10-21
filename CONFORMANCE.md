@@ -244,3 +244,7 @@ importing, resolves it. Hunk marks are lost, as above.
    shape. `tools/sync-experiment.mjs` shows the git side of this with the reference implementation.
 3. **Refuse what you do not know**: both check `schemaVersion` and refuse a larger one.
 4. **Text files**: both apply ALGORITHMS 1.3; a file that is not text gets file marks and file anchors only.
+5. **Where git runs** *(draft 6)*: the change-set command (SPEC 8) runs with the **top level of the reviewed
+   repository** as working directory. With `diff.relative` set, git run from a subdirectory reports only
+   that subdirectory (`tools/changeset-experiment.mjs`, check 4). The plugin's `GitCli` already runs at the
+   top level (`GitCli(root)`); the app should confirm the same.

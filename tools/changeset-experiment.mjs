@@ -4,10 +4,12 @@
 // (path, oldPath, changeKey) and with it on file marks and file anchors. The pinned command
 // (CHANGESET_GIT_ARGS in lib.mjs) is immune to that configuration.
 //
-// Two configuration effects, each shown with a repository of one commit pair:
+// Three configuration and usage effects, each shown with a repository of one commit pair:
 //   1. diff.renameLimit: above it git silently skips inexact rename detection, so renames with edits
 //      come out as deletions plus additions. (Git's default is 1000; the test lowers it to stay fast.)
 //   2. diff.ignoreSubmodules=all: a changed submodule pointer disappears from the output.
+//   3. diff.relative=true: run from a subdirectory, git reports only that subdirectory's files, with paths
+//      relative to it. No flag fixes that; the tool must run the command at the repository's top level.
 //
 //   node tools/changeset-experiment.mjs        (needs git on PATH; uses a temporary folder)
 
@@ -99,6 +101,16 @@ try {
   const masked = (raw) => raw.replace(/[0-9a-f]{40}/g, "#");
   assert.equal(masked(q1), masked(q2), "same entries, same order, same paths");
   ok("3. and the two outputs describe the same files in the same order");
+
+  // Where git runs matters too: with diff.relative=true, git run from a subdirectory reports only that
+  // subdirectory's files, with paths relative to it. No flag of the command fixes that (SPEC 8 therefore
+  // requires the repository's top level as working directory), so show both halves.
+  git(stock, "config", "--local", "diff.relative", "true");
+  assert.equal(masked(pinned(stock)), masked(q2), "at the top level the setting changes nothing");
+  const inSubdirectory = masked(gitRaw(join(stock, "e"), [...CHANGESET_GIT_ARGS, "HEAD~1", "HEAD", "--"]));
+  assert.notEqual(inSubdirectory, masked(q2), "from a subdirectory the change set differs");
+  assert.ok(!inSubdirectory.includes("e/g0.txt") && inSubdirectory.includes("g0.txt"), "paths are relative to the subdirectory, not to the top level");
+  ok("4. run at the top level the pinned command is immune to diff.relative; run from a subdirectory it is not");
 } finally {
   rmSync(tmp, { recursive: true, force: true });
 }
