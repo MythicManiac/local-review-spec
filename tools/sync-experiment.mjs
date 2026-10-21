@@ -7,6 +7,9 @@
 //   3. Two groups created independently and then joined conflict only on group.json, and the
 //      deterministic rule (older createdAt wins, then the smaller id) gives both devices the same file.
 //   4. .gitattributes `* -text` keeps log bytes exact on a machine with core.autocrlf=true.
+//   5. A group made by an older tool (a .gitignore with only "*.tmp") is brought up to the format by
+//      appending the missing lines; two devices doing it independently merge cleanly, and when each also
+//      has lines of its own the conflict is resolved by the rule of SPEC 9.3 with the same result on both.
 //
 //   node tools/sync-experiment.mjs        (needs git on PATH; uses a temporary folder)
 
@@ -15,7 +18,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import assert from "node:assert/strict";
-import { fold } from "./lib.mjs";
+import { fold, appendMissing, mergeRepoFile, GITIGNORE_LINES, GITATTRIBUTES_LINES } from "./lib.mjs";
 
 const tmp = mkdtempSync(join(tmpdir(), "lrs-sync-"));
 const env = {
@@ -164,6 +167,64 @@ try {
   assert.ok(wanted.equals(got), "log bytes must survive a checkout with core.autocrlf=true");
   assert.ok(!got.includes(Buffer.from("\r\n")), "no CR was added");
   ok("4. with core.autocrlf=true on the cloning machine, `* -text` keeps log bytes exact");
+
+  {
+    // ---- 5: groups made by an older tool (.gitignore holds only "*.tmp", no .gitattributes) -----------
+    const older = (name) => {
+      const remote = join(tmp, `${name}.git`);
+      mkdirSync(remote);
+      git(remote, "init", "-q", "--bare", "-b", "main");
+      const seed = join(tmp, `${name}-seed`);
+      mkdirSync(seed);
+      git(seed, "init", "-q", "-b", "main");
+      put(join(seed, "group.json"), JSON.stringify({ schemaVersion: 2, id: "OLD", createdAt: 1 }, null, 2) + NEWLINE);
+      put(join(seed, ".gitignore"), "*.tmp\n");
+      git(seed, "add", "-A");
+      git(seed, "commit", "-q", "-m", "older tool");
+      git(seed, "remote", "add", "origin", remote);
+      git(seed, "push", "-q", "origin", "main");
+      return ["one", "two"].map((n) => {
+        const d = join(tmp, `${name}-${n}`);
+        git(tmp, "clone", "-q", remote, d);
+        return d;
+      });
+    };
+    const readFile = (dir, f) => (existsSync(join(dir, f)) ? readFileSync(join(dir, f), "utf8") : "");
+    const bringUpToSpec = (dir, personal = "") => {
+      put(join(dir, ".gitignore"), appendMissing(readFile(dir, ".gitignore"), GITIGNORE_LINES) + personal);
+      put(join(dir, ".gitattributes"), appendMissing(readFile(dir, ".gitattributes"), GITATTRIBUTES_LINES));
+      commitAll(dir, "bring the group up to the format");
+    };
+
+    const [p, q] = older("older-a");
+    bringUpToSpec(p);
+    bringUpToSpec(q);
+    assert.ok(sync(p).ok);
+    const same = sync(q);
+    assert.ok(same.ok, `two devices appending the same lines must merge cleanly:\n${same.out}`);
+    assert.equal(readFile(q, ".gitignore"), "*.tmp\n*.lock\n/reviews/*/local/\n", "the older tool's line stays where it was");
+    assert.equal(readFile(q, ".gitattributes"), "* -text\n*.jsonl merge=union\n");
+    ok("5a. two devices upgrading the same older group independently append the same lines and merge without a conflict");
+
+    const [r, s] = older("older-b");
+    bringUpToSpec(r, "build/\n"); // each device also has a pattern of its own
+    bringUpToSpec(s, "dist/\n");
+    assert.ok(sync(r).ok);
+    const clash = sync(s);
+    assert.equal(clash.ok, false, "different lines appended at the same place conflict");
+    assert.deepEqual(git(s, "diff", "--name-only", "--diff-filter=U").split("\n").filter(Boolean), [".gitignore"], "and only .gitignore does");
+    const stage = (n) => execFileSync("git", ["show", `:${n}:.gitignore`], { cwd: s, env, encoding: "utf8" });
+    const resolved = mergeRepoFile(GITIGNORE_LINES, stage(2), stage(3));
+    assert.equal(resolved, mergeRepoFile(GITIGNORE_LINES, stage(3), stage(2)), "the rule does not depend on which side is ours");
+    put(join(s, ".gitignore"), resolved);
+    git(s, "add", ".gitignore");
+    git(s, "commit", "-q", "--no-edit");
+    git(s, "push", "-q", "origin", "HEAD:refs/heads/main");
+    git(r, "pull", "-q", "--no-edit", "origin", "main");
+    assert.equal(readFile(r, ".gitignore"), "*.lock\n*.tmp\n/reviews/*/local/\nbuild/\ndist/\n");
+    assert.equal(readFile(s, ".gitignore"), readFile(r, ".gitignore"));
+    ok("5b. differently extended copies conflict on .gitignore only; the rule keeps both devices' lines and gives both the same file");
+  }
 } finally {
   rmSync(tmp, { recursive: true, force: true });
 }

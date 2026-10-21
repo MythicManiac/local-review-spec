@@ -4,8 +4,10 @@ A specification, and a runnable reference, for storing code-review state in a gi
 different tools (the standalone **Local Review** app, the **Local Diff Review** IDE plugin) can read and
 write the same reviews through the same git remote.
 
-Status: **draft 2**, written before either tool implements it. Nothing here has been run by those tools.
+Status: **draft 3**, written before either tool implements it. Nothing here has been run by those tools.
 What has been run is the reference implementation in `tools/`, against the example in `examples/`.
+Draft 3 changed the repository-file rules, the definition of a text file and the import of plugin 0.1.0
+data after checking the plugin's code against draft 2; see "Changes since draft 2" in DECISIONS.md.
 
 ## What it is, in short
 
@@ -39,8 +41,8 @@ What has been run is the reference implementation in `tools/`, against the examp
 Needs Node 20 or newer (and git, only to rebuild the fixture or run the sync experiment). No packages.
 
 ```
-node tools/selftest.mjs                       # 44 checks: algorithms, the example, expected/ is current
-node tools/sync-experiment.mjs                # real git: two clones, union merge, joining two groups, autocrlf
+node tools/selftest.mjs                       # 52 checks: algorithms, text and repository-file rules, the example, expected/ is current
+node tools/sync-experiment.mjs                # real git: two clones, union merge, joining two groups, autocrlf, upgrading an older group
 node tools/fold.mjs examples/state/reviews/<id> --content examples/content    # fold and evaluate a review
 ```
 

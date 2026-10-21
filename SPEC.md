@@ -36,8 +36,8 @@ Companion documents:
 ```
 <group>/                              a git repository, branch main, remote origin (optional)
   group.json                          required
-  .gitattributes                      required, exact content in 2.1
-  .gitignore                          required, exact content in 2.1
+  .gitattributes                      required, must contain the lines in 2.1
+  .gitignore                          required, must contain the lines in 2.1
   reviews/
     <review-id>/
       review.json                     required
@@ -54,14 +54,14 @@ and its own lock file.
 
 ### 2.1 Repository files
 
-`.gitattributes` MUST contain exactly:
+`.gitattributes` MUST contain these lines:
 
 ```
 * -text
 *.jsonl merge=union
 ```
 
-`.gitignore` MUST contain exactly:
+`.gitignore` MUST contain these lines:
 
 ```
 *.lock
@@ -69,20 +69,37 @@ and its own lock file.
 /reviews/*/local/
 ```
 
+Either file MAY contain other lines before or after them (a tool's own patterns, or lines a group got from
+an older tool). Lines are compared exactly after removing one trailing `\r`, and a required line may sit
+anywhere in the file. A line appended by a tool comes last, so nothing that was already in the file
+overrides it; a pattern the user wrote after a required line is the user's choice and is not touched.
+
 Why: `* -text` keeps log bytes exact on machines with `core.autocrlf=true` (verified, see
 `tools/sync-experiment.mjs`); `merge=union` is git's built-in driver that keeps both sides' lines when
 the same log was appended to on two machines; the ignore rules keep locks, temporary files and
 device-local data out of history.
 
-A tool that creates a group MUST write both files. A tool that opens a group where either is missing MUST
-create it with the exact content above and commit it. A tool that finds either present with different
-content MUST NOT rewrite it, and SHOULD warn the user: if two machines both "fixed" a file differently
-they would conflict (see 9.3 for how a join resolves this).
+**Creating a group.** A tool MUST write both files containing exactly the lines above, in this order, each
+line ending in `\n`.
+
+**Opening a group.** A tool MUST check both files. If a file is missing it MUST create it as for a new
+group. If a file lacks some required lines it MUST append the missing ones, in the order above, at the end
+(first adding `\n` if the file does not end with one) and commit the change. It MUST NOT remove, reorder or
+rewrite any other line. The point is groups made by older tools, which have a `.gitignore` of only
+`*.tmp` and no `.gitattributes`: without the missing lines, lock files and device-local data would be
+committed and synced. Two devices that append the same lines independently merge without conflict; if they
+also added different lines of their own at the same place, 9.3 says how that conflict is resolved
+(`tools/sync-experiment.mjs`, experiments 5a and 5b).
+
+A tool MAY also write the three ignore patterns to the clone's `.git/info/exclude`, which is never synced,
+so that the clone is protected before an appended `.gitignore` arrives from another device.
 
 ### 2.2 Review discovery
 
 A review is a folder `reviews/<id>/` containing a readable `review.json`. A folder whose `review.json`
-is missing or invalid is reported to the user and skipped; it is never modified.
+is missing or invalid is reported to the user and skipped; it is never modified. A `review.json` whose
+`schemaVersion` is below 2 was written by an older tool in its own layout (see CONFORMANCE.md): it is
+reported as an older format, skipped, and never modified, even when it sits where a version 2 review would.
 
 ## 3. Values
 
@@ -101,10 +118,11 @@ A review folder name MUST equal the review's `id`. A path in a path-typed field 
 
 ## 4. `group.json` and `review.json`
 
-Both are JSON, written once when the group or review is created, and never rewritten. Readers ignore
-unknown properties. Both carry `schemaVersion`, which is `2` for this format; a tool that meets a larger
-number MUST refuse the group or review, saying that a newer version of the format wrote it, and MUST NOT
-change it. See `schema/group.schema.json` and `schema/review.schema.json`.
+Both are JSON, written once when the group or review is created, and never rewritten. (The one exception
+is a tool converting an older tool's `group.json`, which sits at the same path; CONFORMANCE.md says how.)
+Readers ignore unknown properties. Both carry `schemaVersion`, which is `2` for this format; a tool that
+meets a larger number MUST refuse the group or review, saying that a newer version of the format wrote it,
+and MUST NOT change it. See `schema/group.schema.json` and `schema/review.schema.json`.
 
 ```json
 { "schemaVersion": 2, "id": "01M4XB…", "name": "Example Group", "createdAt": 1791873600000 }
@@ -168,6 +186,14 @@ own device-local configuration, and never synced. Two tools on the same machine 
 a device id MUST NOT be copied to another machine, restored from a backup onto another machine, or
 shared between tools. (If it happens anyway, the union merge in 2.1 and the fold in section 7 still
 produce a correct state: no event is lost and none is applied twice.)
+
+**Hosts.** One tool may run in several hosts on one machine (the same IDE plugin in two IDEs, or in two
+versions of one IDE). A tool MAY give each host its own device id, or MAY keep one id per machine and share
+it between its hosts. Hosts that share an id MUST take the lock of 5.2 step 1 for every review they write
+to, and a host that cannot take it MUST treat that review as read-only until it can (it still reads and
+shows the review, including what the other host wrote). Within one host, everything that writes to one
+review (several windows or projects) MUST go through one holder of that lock. The id of a tool is never
+shared with a different tool.
 
 ### 5.2 Writing
 
@@ -423,7 +449,7 @@ union driver). A merge may still conflict in exactly these cases, which a tool M
 | Conflicted path   | Resolution                                                                              |
 | ----------------- | --------------------------------------------------------------------------------------- |
 | `group.json`      | Two groups created apart were joined. Keep the file with the smaller `createdAt`; on a tie the smaller `id` by UTF-8 bytes. A `createdAt` that is not an integer (an ISO-8601 string from an older tool) is converted; if it cannot be, it loses. Both devices make the same choice. |
-| `.gitattributes`, `.gitignore` | Write the exact content of 2.1.                                            |
+| `.gitattributes`, `.gitignore` | Write the required lines of 2.1 in their order, then every other line of either version (blank lines and duplicates removed), sorted by UTF-8 bytes; every line ends in `\n`. Both devices write the same bytes. (Such a conflict arises when two devices each added different lines at the end of the same file, for example while bringing an older group up to 2.1.) |
 | anything else     | `git merge --abort`. Report the path and leave the user's data exactly as it was. A tool MUST NOT choose a winner and MUST NOT keep a loser as a side file: there is no case in which dropping or hiding one side is correct. |
 
 After a successful pull a tool re-reads the reviews that changed and updates what the user sees.

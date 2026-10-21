@@ -70,6 +70,59 @@ export function trim(s) {
   return trimEnd(s.slice(b));
 }
 
+const UTF8_STRICT = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }); // keeps a BOM so the rule below can drop it
+
+/**
+ * The lines of a blob (ALGORITHMS 1.1, 1.3), or null if the blob is not text: a NUL in the first 8000 bytes,
+ * content that is not well-formed UTF-8, or a CR that is not directly followed by LF. A leading UTF-8 byte
+ * order mark is not part of line 1.
+ */
+export function linesOfBlob(bytes) {
+  if (bytes.subarray(0, 8000).includes(0)) return null;
+  let text;
+  try {
+    text = UTF8_STRICT.decode(bytes);
+  } catch {
+    return null;
+  }
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  for (let i = text.indexOf("\r"); i !== -1; i = text.indexOf("\r", i + 1)) if (text[i + 1] !== "\n") return null;
+  return splitLines(text);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Repository files (SPEC.md sections 2.1 and 9.3)
+// ---------------------------------------------------------------------------------------------
+
+export const GITATTRIBUTES_LINES = ["* -text", "*.jsonl merge=union"];
+export const GITIGNORE_LINES = ["*.lock", "*.tmp", "/reviews/*/local/"];
+
+const repoFileLines = (text) => text.split("\n").map((l) => (l.endsWith("\r") ? l.slice(0, -1) : l));
+
+/**
+ * Opening a group (SPEC 2.1): the file with every required line that is missing appended, in the order given.
+ * Existing content is never changed; an unchanged text is returned as it is. A missing file is "".
+ */
+export function appendMissing(text, required) {
+  const have = new Set(repoFileLines(text));
+  const missing = required.filter((r) => !have.has(r));
+  if (missing.length === 0) return text;
+  const base = text === "" || text.endsWith("\n") ? text : `${text}\n`;
+  return `${base}${missing.join("\n")}\n`;
+}
+
+/**
+ * A merge conflict in .gitignore or .gitattributes (SPEC 9.3): the required lines in their order, then every
+ * other line of either version (blank lines and duplicates removed) sorted by UTF-8 bytes. Symmetric, so both
+ * devices write the same bytes.
+ */
+export function mergeRepoFile(required, ours, theirs) {
+  const others = new Set([...repoFileLines(ours), ...repoFileLines(theirs)].filter((l) => l !== ""));
+  for (const r of required) others.delete(r);
+  const sorted = [...others].sort((a, b) => Buffer.compare(Buffer.from(a, "utf8"), Buffer.from(b, "utf8")));
+  return `${[...required, ...sorted].join("\n")}\n`;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Validation of events (SPEC.md section 6)
 // ---------------------------------------------------------------------------------------------
@@ -562,8 +615,7 @@ export function evaluate(state, content) {
     if (ZERO.test(blob)) return null;
     const bytes = content.readBlob(blob);
     if (!bytes) return null;
-    if (bytes.subarray(0, 8000).includes(0)) return null; // binary: no line model
-    return splitLines(bytes.toString("utf8"));
+    return linesOfBlob(bytes); // null when the blob is not text (ALGORITHMS 1.3)
   };
 
   // Comments

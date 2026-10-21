@@ -9,16 +9,25 @@ text has a bug.
 
 ### 1.1 Lines
 
-The lines of a file are obtained from its content, decoded as UTF-8:
+The lines of a text file (1.3) are obtained from its content, the bytes of the git blob:
 
-1. split at every `\n`;
-2. remove one `\r` from the end of each piece, if there is one;
-3. if the content ended with `\n`, the final empty piece is **not** a line.
+1. decode as UTF-8; if the content starts with the byte order mark (EF BB BF), drop it: it is not part of
+   line 1;
+2. split at every LF and nothing else (U+2028, U+0085 and the like are ordinary characters; a CR alone
+   cannot occur in text, 1.3);
+3. remove one CR from the end of each piece, if there is one;
+4. if the content ended with LF, the final empty piece is **not** a line.
 
 So `"a\nb\n"` and `"a\r\nb"` both have the lines `a`, `b`; `""` has no lines; `"\n"` has one empty line.
 A line number is the 1-based index into that sequence. There is no line after a final newline: an anchor
 or a region cannot refer to it, whatever an editor displays there. (Monaco shows an empty last line; a tool
 built on it must not offer it for annotation.)
+
+A tool MUST derive the lines of a side from the blob's bytes by these rules, never from the document of an
+editor or diff viewer: those apply their own charset detection, byte order mark handling and line
+splitting, and a snapshot or hash computed from them would differ from another tool's. A tool whose viewer
+shows different line numbers than these rules give for a file MUST NOT offer line comments or region marks
+on that file (it can still offer a file comment and a file mark).
 
 ### 1.2 Hash of lines
 
@@ -28,9 +37,20 @@ different hash (`["a","b"]` is not `["ab"]`). No normalisation of whitespace or 
 
 ### 1.3 Text files
 
-A file is **text** if its content has no NUL byte in its first 8000 bytes. Only text files have lines.
-Anchors with `lines` scope and region marks exist only for text files. A binary file is reviewed with a
-file mark and commented on with a `file` anchor.
+A file is **text** if all of these hold for its content (the bytes of the git blob):
+
+1. it has no NUL byte in its first 8000 bytes;
+2. the whole content is well-formed UTF-8 as defined by RFC 3629 and the Unicode Standard: no overlong
+   forms, no encoded surrogates, nothing above U+10FFFF. A byte order mark at the start is allowed;
+3. every CR (U+000D) is directly followed by LF. (CRLF line ends are fine; a CR alone is not.)
+
+Only text files have lines. Anchors with `lines` scope and region marks exist only for text files. Any
+other file is reviewed with a file mark and commented on with a `file` anchor, like a binary.
+
+Why rules 2 and 3: with invalid UTF-8, decoders disagree on how many replacement characters one broken
+sequence becomes, so there is no single line model; and editors disagree on whether a lone CR ends a line
+(IntelliJ and Monaco split on it, git does not), so the same file would have different line numbers in
+different tools. A file that is not text under these rules has no line numbers to disagree about.
 
 ### 1.4 Whitespace for matching
 

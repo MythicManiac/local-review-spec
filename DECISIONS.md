@@ -18,6 +18,9 @@ can be reopened.
 | U4 | What happens to comments when the review moves to new commits | **Suggest, user confirms** | Both tools run one locate algorithm (the plugin's, with ties made exact). It only proposes; applying it writes `annotationReanchored`. Neither tool's old behaviour (silent fuzzy move, or no help at all) survives. |
 | U5 | What one comment or region can cover | **Up to one range per side** | Covers a drag selection across hunks on one side, and a unified-view selection that spans removed and added lines. Tools must read two ranges; creating two is optional. |
 | U6 | Where drafts and reading position live | **Device-local, not synced** | Out of the log and out of history. The app stops writing `draftSaved` and `positionSaved`. Resuming on another device starts at the top. |
+| U7 | Device id of one tool's several hosts on one machine | **One per machine** in the plugin's `.state/`, shared by every IDE running it | The IDEs take the lock of SPEC 5.2 per review; the second one is read-only for a review the first is writing (SPEC 5.1, *Hosts*). The alternative, one id per IDE, would have avoided that. |
+| U8 | What to do about groups made by 0.1.0 whose `.gitignore` is `*.tmp` only | **Change the spec**: a tool appends the missing required lines | SPEC 2.1 and 9.3 changed. The app does the same (CONFORMANCE). |
+| U9 | Scope of the plugin's first conformant release | Replies (read and write), review status, `ruleDecided` on writing AGENTS.md, tag-only rule candidates, automatic import of 0.1.0 reviews, tree progress computed from region marks in the background | Listed in CONFORMANCE (plugin items 8, 15, 16). |
 
 ### What the brief assumed, and what was found
 
@@ -57,10 +60,12 @@ and adds the second range.
 | Hash of lines | SHA-256 | SHA-1 | SHA-256 | Collision resistance costs nothing here. |
 | Commit author | fixed `Local Review` identity | the user's identity if configured | user's if configured, else fixed | The history then says who made a commit when the user's git is set up. |
 | Git merge | plain merge, fails on unrelated histories | `--allow-unrelated-histories` | allow unrelated histories | Lets two groups made apart be joined. |
-| Same-file conflict | abort and report | keep the loser as `<file>.conflict-<hash>` | `group.json` resolved by rule, anything else aborts and reports | With logs there is no same-file conflict to resolve. A side file nobody reads is a silent loss, so it is not offered. |
-| Unreadable file | report, never move | rename to `*.corrupt` | report, never move | Moving the user's data changes history on every device. |
+| Same-file conflict | abort and report | keep the loser as `<file>.conflict-<hash>` | `group.json`, `.gitignore` and `.gitattributes` resolved by rule; anything else aborts and reports | With logs there is no same-file conflict to resolve. A side file nobody reads is a silent loss, so it is not offered. The three files can still conflict when groups are joined or upgraded, and a rule loses nothing there. |
+| Unreadable file | report, never move | rename to `*.corrupt` | report, never move, in every file the format or an older tool wrote | Moving the user's data changes history on every device. Draft 2's CONFORMANCE had let the plugin quarantine its own files, which contradicted this; settled in draft 3. |
 | When to sync | manual button | background plus manual | not specified | A policy of the tool, not of the format. Both are safe. |
 | SSH key per group | none | per group, stored in the group's git config | optional, in the group's git config | A convenience that does not touch the format. |
+| Repository files | `* -text` and `*.lock`, `*.tmp` written at creation only | `.gitignore` of only `*.tmp`, no `.gitattributes` | must **contain** the required lines; append missing ones; union on conflict (U8) | Groups the plugin already made would otherwise stay unprotected (see Changes since draft 2). Appending cannot lose anything and is what two devices would independently do. |
+| What a text file is | n/a (no rule) | n/a | well-formed UTF-8, no lone CR, no NUL in the first 8000 bytes; a leading BOM is dropped | Tools and editors disagree on invalid bytes and on a lone CR; one rule removes the disagreement for the price of file marks on rare files. |
 
 ## Decided in the design (no conflict, but not obvious)
 
@@ -106,3 +111,24 @@ emit `fileReviewed` automatically when regions cover a file.
 - **Authorship.** Events record the device, not a person. A shared group is trusted: any device can write
   any event.
 - **A reader that is too old** neither sees nor damages newer events (5.3, 11), and is told by the counts.
+- **Several IDEs, one device id.** With one id per machine (U7), the second IDE that opens a review another
+  IDE is writing is read-only for that review until the first releases it. It still shows everything.
+- **Old-layout folder named `reviews`.** A 0.1.0 review of a repository called `reviews` sits where a
+  version 2 review goes. It is reported and not imported automatically (CONFORMANCE).
+- **Re-importing is by id, not by time.** An import after a 0.1.0 device changed a file adds events with new
+  ids; their `ts` may be raised by a millisecond to keep the log increasing, which can reorder them against
+  another device's event within that millisecond.
+
+## Changes since draft 2
+
+Draft 3 came from checking the plugin's code against the spec; no tool had implemented draft 2, so the
+format version stays 2.
+
+| Change | Why |
+| ------ | --- |
+| SPEC 2.1: repository files must **contain** the required lines; opening a group **appends** the missing ones (U8) | Draft 2 said "present with different content: do not rewrite". Every group plugin 0.1.0 made has a `.gitignore` of only `*.tmp`, so `*.lock` and `/reviews/*/local/` would never be ignored and lock files and device-local drafts would be committed (checked: `git add -A` stages a locked `.lock` file). |
+| SPEC 9.3: a `.gitattributes` / `.gitignore` conflict is resolved by the union rule, not by writing the exact content | Exact content would drop lines a user or an older tool added. Verified with real git in `tools/sync-experiment.mjs` (5a, 5b). |
+| SPEC 5.1: *Hosts*; several hosts of one tool may share a device id when they take the lock (U7) | The plugin runs in several IDEs on one machine. |
+| SPEC 2.2: a `review.json` below version 2 is reported and skipped | A 0.1.0 review can sit exactly where a version 2 one goes. |
+| ALGORITHMS 1.1, 1.3: a byte order mark is dropped; **text** now also means well-formed UTF-8 and no lone CR; lines come from the blob's bytes | An IDE document differs from the blob in charset, BOM and splitting on a lone CR; invalid UTF-8 has no single decoding. Such a file gets file marks and file anchors only. |
+| CONFORMANCE: the import is deterministic and needs the reviewed repository; canonical `review.json` and `group.json`; id rule for ids over 64 characters; one event per progress file; restore and reopen are expressed; event ids made unique for retargets; no quarantine of any file | Draft 2 called the import "a pure function of the old bytes" although it needs the repository, wrote `review.json` in a way two devices could write differently (an add/add conflict that SPEC 9.3 aborts on), and gave every retarget the same id. |

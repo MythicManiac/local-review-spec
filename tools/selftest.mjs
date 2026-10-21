@@ -9,7 +9,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
-import { readReview, fold, evaluate, loadContent, splitLines, hashLines, resolveMark, locate, addInterval, subtractInterval, trim, trimEnd } from "./lib.mjs";
+import { readReview, fold, evaluate, loadContent, splitLines, hashLines, resolveMark, locate, addInterval, subtractInterval, trim, trimEnd, linesOfBlob, appendMissing, mergeRepoFile, GITIGNORE_LINES, GITATTRIBUTES_LINES } from "./lib.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ids = JSON.parse(readFileSync(join(root, "examples", "ids.json"), "utf8"));
@@ -43,6 +43,47 @@ test("hash: line boundaries matter", () => assert.notEqual(hashLines(["a", "b"])
 test("trim: only tab, VT, FF and space count as whitespace", () => {
   assert.equal(trim("\t x \f"), "x");
   assert.equal(trimEnd("x \u00a0"), "x \u00a0"); // NBSP is not whitespace for matching
+});
+
+// ---- text files (ALGORITHMS 1.1, 1.3) ---------------------------------------------------------
+const B = (s) => Buffer.from(s, "utf8");
+test("text: a UTF-8 byte order mark is not part of line 1", () => assert.deepEqual(linesOfBlob(Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), B("a\nb\n")])), ["a", "b"]));
+test("text: CRLF lines and a missing final newline are text", () => {
+  assert.deepEqual(linesOfBlob(B("a\r\nb\r\n")), ["a", "b"]);
+  assert.deepEqual(linesOfBlob(B("a\r\nb")), ["a", "b"]);
+  assert.deepEqual(linesOfBlob(Buffer.alloc(0)), []);
+});
+test("text: content that is not well-formed UTF-8 is not text", () => {
+  assert.equal(linesOfBlob(Buffer.from([0x61, 0xff, 0x0a])), null); // a stray byte
+  assert.equal(linesOfBlob(Buffer.from([0xc0, 0xaf, 0x0a])), null); // overlong encoding of "/"
+  assert.equal(linesOfBlob(Buffer.from([0xed, 0xa0, 0x80, 0x0a])), null); // an encoded surrogate
+});
+test("text: a CR that does not end a CRLF pair is not text, so editors that split on it cannot disagree", () => {
+  assert.equal(linesOfBlob(B("a\rb\n")), null);
+  assert.equal(linesOfBlob(B("a\r\r\nb\n")), null);
+  assert.equal(linesOfBlob(B("a\r")), null);
+});
+test("text: a NUL in the first 8000 bytes is binary, one later is not looked for", () => {
+  assert.equal(linesOfBlob(Buffer.from([0x61, 0x00, 0x0a])), null);
+  assert.equal(linesOfBlob(Buffer.concat([Buffer.alloc(8000, 0x61), Buffer.from([0x00, 0x0a])])).length, 1);
+});
+
+// ---- repository files (SPEC 2.1, 9.3) --------------------------------------------------------
+test("repo files: missing lines are appended, nothing else is touched", () => {
+  assert.equal(appendMissing("*.tmp\n", GITIGNORE_LINES), "*.tmp\n*.lock\n/reviews/*/local/\n"); // what plugin 0.1.0 wrote
+  assert.equal(appendMissing("build/", GITIGNORE_LINES), "build/\n*.lock\n*.tmp\n/reviews/*/local/\n");
+  assert.equal(appendMissing("", GITATTRIBUTES_LINES), "* -text\n*.jsonl merge=union\n");
+});
+test("repo files: a file that has every line is returned unchanged, whatever else it holds", () => {
+  const t = "# mine\r\n*.lock\r\n*.tmp\r\nout/\r\n/reviews/*/local/";
+  assert.equal(appendMissing(t, GITIGNORE_LINES), t);
+});
+test("repo files: a conflict is resolved by the required lines, then the other lines, identically on both sides", () => {
+  const a = "*.tmp\n*.lock\n/reviews/*/local/\nbuild/\n";
+  const b = "*.tmp\n*.lock\n/reviews/*/local/\ndist/\n\n";
+  const want = "*.lock\n*.tmp\n/reviews/*/local/\nbuild/\ndist/\n";
+  assert.equal(mergeRepoFile(GITIGNORE_LINES, a, b), want);
+  assert.equal(mergeRepoFile(GITIGNORE_LINES, b, a), want);
 });
 
 // ---- intervals ------------------------------------------------------------------------------
