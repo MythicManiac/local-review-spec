@@ -23,6 +23,7 @@ can be reopened.
 | U9 | Scope of the plugin's first conformant release | Replies (read and write), review status, `ruleDecided` on writing AGENTS.md, tag-only rule candidates, automatic import of 0.1.0 reviews, tree progress computed from region marks in the background | Listed in CONFORMANCE (plugin items 8, 15, 16). |
 | U10 | Does the app need to read, or migrate, its own earlier files | **No.** It has no real data | Everything that existed only to read the app's earlier format is removed: the legacy event types, the flat anchor reader, the migration paragraph, the app-events mapping table. The plugin's 0.1.0 import stays (0.1.0 is released). |
 | U11 | Who writes a group's `.gitignore` and `.gitattributes` | **Only the tools.** Nobody is expected to hand-edit them | The conflict rule need not preserve any ordering among other lines (sorted is enough), the effective-rules check is a SHOULD, and no merge base is needed. Foreign lines are still kept, never dropped. |
+| U12 | How a reviewed region is relocated when its lines occur more than once in the file | **Unique only.** An ambiguous mark stays stale | No tie rules and no distance rules to agree on between tools. About 1.5% of surviving marks, all single lines, show as stale and are re-marked. See "Ambiguity is stale, not nearest" below. |
 
 ### What the brief assumed, and what was found
 
@@ -82,11 +83,17 @@ and adds the second range.
 - **File marks and region marks are independent.** The plugin's rule "all hunks reviewed means the file is
   reviewed, un-reviewing the file clears the hunks" is a tool behaviour, built from events, not a storage
   rule. It was removed from the format because the app does not have it and it entangles two facts.
-- **Ambiguity is stale, not nearest.** The user chose "exact relocation (unique, nearest)". The spec keeps
-  unique and drops "nearest" **for marks**, because a mark placed on a guessed occurrence reports code as
-  reviewed that the reviewer never looked at. "Nearest" is kept where a human confirms the result
-  (comment suggestions, ALGORITHMS 4). If you want nearest for marks too, it is one rule in ALGORITHMS 3.1,
-  at the cost described there.
+- **Ambiguity is stale, not nearest (U12).** A mark relocates only when its exact lines occur once (or are
+  still at the same numbers). More than one occurrence leaves it stale. "Nearest" is kept only where a human
+  confirms the result (comment suggestions, ALGORITHMS 4). Why: a mark placed on a guessed occurrence
+  reports code as reviewed that the reviewer never looked at, and "nearest" can jump between occurrences
+  when unrelated lines change. Measured on the history of two small repositories (the app, 415 hunks; the
+  plugin, 258 hunks), evaluated against the file at HEAD: about 17-18% of marks moved and were found
+  uniquely, and 1.5% of the marks whose lines still existed were ambiguous. Every ambiguous mark was a
+  one-line hunk (a blank line, a brace, an import); none of two or more lines was. The repositories are
+  young (18 and 13 commits), so a large old one may show more, but the cost stays confined to short ranges.
+  If it proves annoying in use, the upgrade is suggest-and-confirm for stale marks (no format change), not
+  guessing.
 - **Comment state is computed.** The plugin stored `outdated` in the comment file; storing it means two
   devices can disagree and a stale flag survives. Computing it from the pin and the files cannot.
 - **Hunks are not in the format at all.** Not as an anchor, not as a mark, not as a hint. That is what
@@ -171,3 +178,4 @@ check of the app against the spec. No tool has implemented any draft, so the for
 | ALGORITHMS 6: ranges for marks come from a whitespace-sensitive comparison; changed lines may come from the tool's own engine and need not agree between tools | A viewer that ignores whitespace could never mark a whitespace-only change. IDE and git choose different hunks around repeated lines; nothing stored depends on it. |
 | CONFORMANCE: the plugin's verified plan for lines from blobs (probes on 11 awkward files: only a lone CR changes the IDE's numbering), for unified selections, for the lock and the device id, and the exact flags `GitCli.diffRaw` lacks | Recorded so the implementation starts from what was measured. |
 | Informative notes on stale locks (SPEC 5.2, 9.2); no new requirements | Raised after asking whether a crash can leave a lock stuck. Judged rare enough not to specify further for now. |
+| U12 recorded: reviewed marks relocate only when unique (confirmed by the user); the earlier "nearest" wording is gone | The user's first choice was "exact relocation (unique, nearest)"; the spec narrowed it to unique and flagged that. After seeing the tradeoffs and a measurement, the user confirmed unique-only. |
