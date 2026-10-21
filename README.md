@@ -4,10 +4,12 @@ A specification, and a runnable reference, for storing code-review state in a gi
 different tools (the standalone **Local Review** app, the **Local Diff Review** IDE plugin) can read and
 write the same reviews through the same git remote.
 
-Status: **draft 3**, written before either tool implements it. Nothing here has been run by those tools.
+Status: **draft 4**, written before either tool implements it. Nothing here has been run by those tools.
 What has been run is the reference implementation in `tools/`, against the example in `examples/`.
-Draft 3 changed the repository-file rules, the definition of a text file and the import of plugin 0.1.0
-data after checking the plugin's code against draft 2; see "Changes since draft 2" in DECISIONS.md.
+Draft 4 fixed the `.gitignore`/`.gitattributes` conflict rule (git applies the last matching line), added a
+check that git honours the required rules, put the writer's lock on the `.lock` file only, and removed
+everything that existed only to read the app's earlier format (it held no real data). See "Changes since
+draft 3" in DECISIONS.md.
 
 ## What it is, in short
 
@@ -41,8 +43,8 @@ data after checking the plugin's code against draft 2; see "Changes since draft 
 Needs Node 20 or newer (and git, only to rebuild the fixture or run the sync experiment). No packages.
 
 ```
-node tools/selftest.mjs                       # 52 checks: algorithms, text and repository-file rules, the example, expected/ is current
-node tools/sync-experiment.mjs                # real git: two clones, union merge, joining two groups, autocrlf, upgrading an older group
+node tools/selftest.mjs                       # 56 checks: algorithms, text and repository-file rules, the example, expected/ is current
+node tools/sync-experiment.mjs                # real git: 10 experiments (union merge, joining groups, autocrlf, older groups, effective rules)
 node tools/fold.mjs examples/state/reviews/<id> --content examples/content    # fold and evaluate a review
 ```
 
@@ -67,6 +69,7 @@ tools/
   lib.mjs  fold.mjs                reference fold and evaluator
   make-fixture.mjs  make-example.mjs  generators
   selftest.mjs  sync-experiment.mjs  tests
+  repocheck.mjs                    asks git whether the required .gitignore/.gitattributes rules are honoured
 ```
 
 ## What is not specified

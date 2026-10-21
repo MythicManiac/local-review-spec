@@ -78,12 +78,36 @@ test("repo files: a file that has every line is returned unchanged, whatever els
   const t = "# mine\r\n*.lock\r\n*.tmp\r\nout/\r\n/reviews/*/local/";
   assert.equal(appendMissing(t, GITIGNORE_LINES), t);
 });
-test("repo files: a conflict is resolved by the required lines, then the other lines, identically on both sides", () => {
+const REQ_IGN = GITIGNORE_LINES.join("\n");
+test("repo files: a conflict keeps each side's additions together and in order, required lines last, identically on both sides", () => {
+  const base = "*.tmp\n";
   const a = "*.tmp\n*.lock\n/reviews/*/local/\nbuild/\n";
   const b = "*.tmp\n*.lock\n/reviews/*/local/\ndist/\n\n";
-  const want = "*.lock\n*.tmp\n/reviews/*/local/\nbuild/\ndist/\n";
-  assert.equal(mergeRepoFile(GITIGNORE_LINES, a, b), want);
-  assert.equal(mergeRepoFile(GITIGNORE_LINES, b, a), want);
+  const want = `build/\ndist/\n${REQ_IGN}\n`;
+  assert.equal(mergeRepoFile(GITIGNORE_LINES, base, a, b), want);
+  assert.equal(mergeRepoFile(GITIGNORE_LINES, base, b, a), want);
+});
+test("repo files: nothing a user wrote can come after, and so override, a required line", () => {
+  const base = "* -text\n*.jsonl merge=union\n";
+  const ours = `${base}* text=auto eol=crlf\n`;
+  const theirs = `${base}*.png binary\n`;
+  const merged = mergeRepoFile(GITATTRIBUTES_LINES, base, ours, theirs);
+  assert.equal(merged, "* text=auto eol=crlf\n*.png binary\n* -text\n*.jsonl merge=union\n");
+  assert.equal(merged, mergeRepoFile(GITATTRIBUTES_LINES, base, theirs, ours));
+});
+test("repo files: a negation stays after the pattern it re-includes", () => {
+  const base = "*.tmp\n";
+  const ours = `${base}*.lock\n/reviews/*/local/\nbuild/*\n!build/keep.txt\n`;
+  const theirs = `${base}*.lock\n/reviews/*/local/\n`;
+  const merged = mergeRepoFile(GITIGNORE_LINES, base, ours, theirs);
+  assert.equal(merged, `build/*\n!build/keep.txt\n${REQ_IGN}\n`);
+  assert.equal(merged, mergeRepoFile(GITIGNORE_LINES, base, theirs, ours));
+});
+test("repo files: with no common ancestor (two groups joined) both files are kept, required lines last", () => {
+  assert.equal(mergeRepoFile(GITIGNORE_LINES, "", "*.tmp\n", "*.tmp\nout/\n"), `out/\n${REQ_IGN}\n`);
+});
+test("repo files: a line one side removed and the other kept stays: nothing is lost", () => {
+  assert.equal(mergeRepoFile(GITIGNORE_LINES, "x\ny\n", "x\n", "x\ny\n"), `x\ny\n${REQ_IGN}\n`);
 });
 
 // ---- intervals ------------------------------------------------------------------------------
@@ -139,7 +163,7 @@ const check = (text) => evald.annotations[by(text).id];
 
 test("main: nothing in the main review is damaged", () => {
   const r = state.report;
-  assert.equal(r.duplicates + r.unknown + r.ignoredLegacy + r.orphans + r.invalidEnvelopes + r.tornTails + r.corruptLines.length, 0);
+  assert.equal(r.duplicates + r.unknown + r.orphans + r.invalidEnvelopes + r.tornTails + r.corruptLines.length, 0);
 });
 test("main: review rename, retarget and status resolve across two devices", () => {
   assert.equal(state.review.title, "Add calc module (round 2)");
@@ -199,7 +223,6 @@ test("edge: every kind of damage is counted, none aborts the read", () => {
   const r = edge.report;
   assert.equal(r.duplicates, 1);
   assert.equal(r.unknown, 2); // an unknown type and an unknown enum value
-  assert.equal(r.ignoredLegacy, 3);
   assert.equal(r.orphans, 1);
   assert.equal(r.invalidEnvelopes, 1);
   assert.equal(r.tornTails, 1);

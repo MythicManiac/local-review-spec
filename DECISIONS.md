@@ -21,6 +21,7 @@ can be reopened.
 | U7 | Device id of one tool's several hosts on one machine | **One per machine** in the plugin's `.state/`, shared by every IDE running it | The IDEs take the lock of SPEC 5.2 per review; the second one is read-only for a review the first is writing (SPEC 5.1, *Hosts*). The alternative, one id per IDE, would have avoided that. |
 | U8 | What to do about groups made by 0.1.0 whose `.gitignore` is `*.tmp` only | **Change the spec**: a tool appends the missing required lines | SPEC 2.1 and 9.3 changed. The app does the same (CONFORMANCE). |
 | U9 | Scope of the plugin's first conformant release | Replies (read and write), review status, `ruleDecided` on writing AGENTS.md, tag-only rule candidates, automatic import of 0.1.0 reviews, tree progress computed from region marks in the background | Listed in CONFORMANCE (plugin items 8, 15, 16). |
+| U10 | Does the app need to read, or migrate, its own earlier files | **No.** It has no real data | Everything that existed only to read the app's earlier format is removed: the legacy event types, the flat anchor reader, the migration paragraph, the app-events mapping table. The plugin's 0.1.0 import stays (0.1.0 is released). |
 
 ### What the brief assumed, and what was found
 
@@ -64,7 +65,7 @@ and adds the second range.
 | Unreadable file | report, never move | rename to `*.corrupt` | report, never move, in every file the format or an older tool wrote | Moving the user's data changes history on every device. Draft 2's CONFORMANCE had let the plugin quarantine its own files, which contradicted this; settled in draft 3. |
 | When to sync | manual button | background plus manual | not specified | A policy of the tool, not of the format. Both are safe. |
 | SSH key per group | none | per group, stored in the group's git config | optional, in the group's git config | A convenience that does not touch the format. |
-| Repository files | `* -text` and `*.lock`, `*.tmp` written at creation only | `.gitignore` of only `*.tmp`, no `.gitattributes` | must **contain** the required lines; append missing ones; union on conflict (U8) | Groups the plugin already made would otherwise stay unprotected (see Changes since draft 2). Appending cannot lose anything and is what two devices would independently do. |
+| Repository files | `* -text` and `*.lock`, `*.tmp` written at creation only | `.gitignore` of only `*.tmp`, no `.gitattributes` | must be **honoured by git**, not merely present: append missing lines, append again any that a later line overrides; on conflict an order-preserving merge with the required lines last (U8) | Groups the plugin already made would otherwise stay unprotected, and git applies the last matching line (see Changes since draft 2 and draft 3). Appending cannot lose anything and is what two devices would independently do. |
 | What a text file is | n/a (no rule) | n/a | well-formed UTF-8, no lone CR, no NUL in the first 8000 bytes; a leading BOM is dropped | Tools and editors disagree on invalid bytes and on a lone CR; one rule removes the disagreement for the price of file marks on rare files. |
 
 ## Decided in the design (no conflict, but not obvious)
@@ -132,3 +133,16 @@ format version stays 2.
 | SPEC 2.2: a `review.json` below version 2 is reported and skipped | A 0.1.0 review can sit exactly where a version 2 one goes. |
 | ALGORITHMS 1.1, 1.3: a byte order mark is dropped; **text** now also means well-formed UTF-8 and no lone CR; lines come from the blob's bytes | An IDE document differs from the blob in charset, BOM and splitting on a lone CR; invalid UTF-8 has no single decoding. Such a file gets file marks and file anchors only. |
 | CONFORMANCE: the import is deterministic and needs the reviewed repository; canonical `review.json` and `group.json`; id rule for ids over 64 characters; one event per progress file; restore and reopen are expressed; event ids made unique for retargets; no quarantine of any file | Draft 2 called the import "a pure function of the old bytes" although it needs the repository, wrote `review.json` in a way two devices could write differently (an add/add conflict that SPEC 9.3 aborts on), and gave every retarget the same id. |
+
+## Changes since draft 3
+
+Draft 4 answers a review of draft 3 and the user's answer that the app has no real data. No tool has
+implemented any draft, so the format version stays 2.
+
+| Change | Why |
+| ------ | --- |
+| SPEC 9.3: the `.gitignore`/`.gitattributes` conflict rule keeps the base's lines, then each side's additions together and in the order that side wrote them, then the required lines **last** (draft 3: required lines first, everything else sorted). `mergeRepoFile` takes the base | Git applies the **last** matching line. Draft 3's rule could put a user's `* text=auto eol=crlf` after `* -text`, turning on the conversion the rule exists to prevent, and sorting put a `!negation` before the pattern it re-includes. Both were shown with real git before the fix; after it, experiment 6b checks the required rules and a user's negation with `git check-attr` and `git check-ignore`. |
+| SPEC 2.1: **Effective rules**. Opening a group also asks git whether each required rule is honoured, and appends again any that a later line overrides; warns if one still is not | Draft 3 treated a required line as satisfied wherever it appeared, so `* -text` followed by `* text=auto` was accepted. Present is not effective. Experiment 6a. `tools/repocheck.mjs`. |
+| SPEC 5.2: the writer's lock is on `<device-id>.lock`, never on the log | Draft 3 allowed either while CONFORMANCE forbade the log, because a lock on the log can stop git from reading it. One rule now. |
+| Removed: the legacy event types (old SPEC 6.1) and the `ignoredLegacy` count; the app's flat anchor shape in the reference reader; the app's migration paragraph; the "App events → this format" table; the three legacy lines of the edge-case example (U10) | The app has no real data (U10). A spec that carries its predecessor's format forever pays for it in every reader. An event type nobody defines is simply an unknown event. SPEC 6.1 now says drafts, position and hunk marks are not part of the format. |
+| SPEC 2.2 names what "older format" means: plugin 0.1.0, and the app's pre-spec files, which are not supported | There is no app-v1 upgrade to specify, so the gap found in the review (an unspecified, non-canonical rewrite of the app's `review.json`, contradicting "never modified") does not exist. |

@@ -86,7 +86,6 @@ Nothing about code. Each line below is deliberate:
 | The same event in two logs | `dup-0000000001` in two files | applied once; 1 duplicate |
 | CRLF line ends | the second device's log | read normally |
 | A type no reader knows; a known type with an extra field; a known type with an unknown enum value | second log | unknown type and bad enum counted (2) and ignored; the extra field ignored, the event applied |
-| Types the old app wrote and this format ignores | `draftSaved`, `positionSaved`, `hunkReviewed` | ignored, counted as legacy (3) |
 | An event addressed to something that does not exist | `annotationDeleted` for `no-such-annotation` | 1 orphan |
 | An edit timestamped before the creation it edits | `eb-0001` | still applied |
 | The same annotation created again later | `eb-0009` | applies as an edit: body `re-imported`, kind `question` |

@@ -15,17 +15,19 @@ The app's current events are close to this format; most work is additive.
 1. **`group.json`**: write `schemaVersion: 2`, `createdAt`; make `name` optional (fall back to the folder
    name). Reading a group the plugin made currently fails with `` missing field `name` ``.
 2. **Repository files**: new groups get the exact `.gitattributes` and `.gitignore` of SPEC 2.1. When
-   opening a group, **append the lines that are missing** (SPEC 2.1 *opening a group*) and commit; never
-   rewrite the file. (Today the app writes `* -text` and `*.lock`, `*.tmp` only at group creation, and a
-   group the plugin made has a `.gitignore` of only `*.tmp` and no `.gitattributes`.)
+   opening a group, **append the lines that are missing**, then check the **effective rules** with git
+   (SPEC 2.1; `tools/repocheck.mjs`) and append again any required line a later line overrides; commit,
+   and never rewrite or remove a line. (Today the app writes `* -text` and `*.lock`, `*.tmp` only at group
+   creation, and a group the plugin made has a `.gitignore` of only `*.tmp` and no `.gitattributes`.)
 3. **Sync**: merge with `--allow-unrelated-histories`; resolve a `group.json` conflict by the rule in SPEC
-   9.3, and a `.gitattributes` or `.gitignore` conflict by the union rule there (`mergeRepoFile` in
-   `tools/lib.mjs`); retry a rejected push up to three times; keep aborting on any other conflict. Use the
-   user's git identity when set.
+   9.3, and a `.gitattributes` or `.gitignore` conflict by the order-preserving rule there
+   (`mergeRepoFile(required, base, ours, theirs)` in `tools/lib.mjs`; the base is `git show :1:<file>`, and
+   empty when there is none); retry a rejected push up to three times; keep aborting on any other conflict.
+   Use the user's git identity when set.
 4. **Anchors** become `{scope, path, oldPath?, pin, ranges[]}` with the snapshot per range (today:
-   `{path, oldPath, side, startLine, endLine, pin, snapshot}`). Keep reading the old flat shape
-   (`normalizeAnchor` in `tools/lib.mjs` shows the conversion). Add the `review` scope (a place in the UI
-   for review-level comments) and the second range (a selection spanning both sides in the inline view).
+   `{path, oldPath, side, startLine, endLine, pin, snapshot}`, which is replaced, not read). Add the
+   `review` scope (a place in the UI for review-level comments) and the second range (a selection spanning
+   both sides in the inline view).
 5. **Line model**: stop counting a final empty line after a trailing newline. Today `line_window` counts
    one (to match Monaco), so an annotation can be created on a line that does not exist in git's model;
    clamp to the number of real lines and do not offer that line in the editor. *Draft 3:* apply the text
@@ -41,15 +43,14 @@ The app's current events are close to this format; most work is additive.
    `note`, and `annotationReanchored.method`. Replace the "Outdated" chip's Re-anchor flow by the
    suggestion of ALGORITHMS 4 (it already has "pick lines"; add "accept suggestion").
 8. **Drafts and reading position**: move out of the log into `reviews/<id>/local/<device-id>/` (SPEC 10),
-   still `fsync`ed. Stop writing `draftSaved`, `draftDiscarded`, `positionSaved`. Existing events of these
-   types are ignored on read (they are on the legacy list).
+   still `fsync`ed. Stop writing `draftSaved`, `draftDiscarded`, `positionSaved`.
 9. **Device id**: unchanged, but never shared with another tool.
 10. **Tests**: add the fold and evaluation vectors. Existing store tests that pin hunk marks or the flat
     anchor change with items 4 and 6.
 
-The app's present on-disk format (schemaVersion 1) is a subset of this one except for the three changes
-above (anchor shape, hunk marks, drafts and position), so a one-time rewrite of `group.json` and
-`review.json` is the only migration; the event logs are never rewritten, only read with the legacy rules.
+**No migration.** The app's earlier format (schemaVersion 1) held no real data. The app does not read it: a
+`review.json` or `group.json` below version 2 is reported as an older format and skipped (SPEC 2.2), and a
+developer deletes any such files. Nothing in this format exists only to read it.
 
 ## The plugin
 
@@ -59,9 +60,10 @@ the user made for it are recorded in DECISIONS (U7 and the plugin scope below).
 1. **Layout**: write `reviews/<review-id>/` with `review.json` and `events/<device-id>.jsonl` inside the
    group, not `<repo-name>/<review-id>/`. New groups get the exact repository files of SPEC 2.1. *Draft 3:*
    groups made by 0.1.0 have a `.gitignore` of only `*.tmp` and no `.gitattributes`; on opening such a
-   group the plugin appends the missing lines (SPEC 2.1) and commits, so lock files and device-local data
-   are never committed. Keep the old `.state/` outside the group for last-opened pointers, the repository
-   to group choice and the device id.
+   group the plugin appends the missing lines, checks the effective rules with git and appends again any
+   that a later line overrides (SPEC 2.1), and commits, so lock files and device-local data are never
+   committed. Keep the old `.state/` outside the group for last-opened pointers, the repository to group
+   choice and the device id.
 2. **Device id** *(draft 3, decided by the user)*: one per **machine**, generated once and kept in
    `.state/`, shared by every IDE on the machine that runs the plugin (SPEC 5.1, *Hosts*). It is not kept in
    IDE settings, which Settings Sync could copy to another machine. Consequences the plugin has to handle:
@@ -215,15 +217,6 @@ devices may append to; the union merge in SPEC 2.1 and the fold absorb that.
 older format (SPEC 2.2) and **not** imported automatically: writing `events/` and a version 2 `review.json`
 there would mix two formats in one folder. Moving the folder `reviews/` to another name in the group, then
 importing, resolves it. Hunk marks are lost, as above.
-
-### App events (schema 1, pre-spec) → this format
-
-| App today | This format |
-| --------- | ----------- |
-| `annotationCreated.anchor` flat `{path, oldPath, side, startLine, endLine, pin, snapshot}` | `{scope: lines or file, path, oldPath, pin, ranges: [{side, startLine, endLine, snapshot}]}`; no `startLine` means scope `file` |
-| `hunkReviewed`, `hunkUnreviewed` | ignored (legacy) |
-| `draftSaved`, `draftDiscarded`, `positionSaved` | ignored (legacy); local files instead |
-| everything else | unchanged |
 
 ## Both
 

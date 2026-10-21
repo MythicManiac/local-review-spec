@@ -70,9 +70,10 @@ and its own lock file.
 ```
 
 Either file MAY contain other lines before or after them (a tool's own patterns, or lines a group got from
-an older tool). Lines are compared exactly after removing one trailing `\r`, and a required line may sit
-anywhere in the file. A line appended by a tool comes last, so nothing that was already in the file
-overrides it; a pattern the user wrote after a required line is the user's choice and is not touched.
+an older tool). Lines are compared exactly after removing one trailing `\r`. **Order matters:** git applies
+the last line that matches, so a required line that is present can still be overridden by a later one
+(`* text=auto` after `* -text`, or `!*.lock` after `*.lock`). What counts is whether git honours the rule
+(see *Effective rules* below), not whether the line is there.
 
 Why: `* -text` keeps log bytes exact on machines with `core.autocrlf=true` (verified, see
 `tools/sync-experiment.mjs`); `merge=union` is git's built-in driver that keeps both sides' lines when
@@ -82,14 +83,33 @@ device-local data out of history.
 **Creating a group.** A tool MUST write both files containing exactly the lines above, in this order, each
 line ending in `\n`.
 
-**Opening a group.** A tool MUST check both files. If a file is missing it MUST create it as for a new
-group. If a file lacks some required lines it MUST append the missing ones, in the order above, at the end
-(first adding `\n` if the file does not end with one) and commit the change. It MUST NOT remove, reorder or
-rewrite any other line. The point is groups made by older tools, which have a `.gitignore` of only
-`*.tmp` and no `.gitattributes`: without the missing lines, lock files and device-local data would be
-committed and synced. Two devices that append the same lines independently merge without conflict; if they
-also added different lines of their own at the same place, 9.3 says how that conflict is resolved
-(`tools/sync-experiment.mjs`, experiments 5a and 5b).
+**Opening a group.** A tool MUST check both files and MUST commit any change it makes:
+
+1. If a file is missing, create it as for a new group.
+2. If a file lacks some required lines, append the missing ones, in the order above, at the end (first
+   adding `\n` if the file does not end with one). It MUST NOT remove, reorder or rewrite any other line.
+   The point is groups made by older tools, which have a `.gitignore` of only `*.tmp` and no
+   `.gitattributes`: without the missing lines, lock files and device-local data would be committed and
+   synced.
+3. Check the **effective rules** below. For each required line that git does not honour, append that line
+   again at the end, where it is the last match. It MUST NOT remove or edit the line that overrode it. If a
+   rule is still not honoured (an override git reads from outside the group's own files, such as
+   `.git/info/attributes`, which a tool must not edit), warn the user and name the rule.
+
+**Effective rules.** A line being present is not enough. Ask git, in the group's working tree, with these
+probe paths (they need not exist). `tools/repocheck.mjs` is a reference implementation.
+
+| Required line         | Honoured when                                     | Probe path                                        |
+| --------------------- | ------------------------------------------------- | ------------------------------------------------- |
+| `* -text`             | `git check-attr text -- <path>` reports `unset`   | `reviews/probe/events/probe.jsonl`                |
+| `*.jsonl merge=union` | `git check-attr merge -- <path>` reports `union`  | `reviews/probe/events/probe.jsonl`                |
+| `*.lock`              | `git check-ignore -q -- <path>` exits 0           | `reviews/probe/events/probe-device.lock`          |
+| `*.tmp`               | `git check-ignore -q -- <path>` exits 0           | `reviews/probe/review.json.tmp`                   |
+| `/reviews/*/local/`   | `git check-ignore -q -- <path>` exits 0           | `reviews/probe/local/probe-device/position.json`  |
+
+Two devices that append the same lines independently merge without conflict; if they also added different
+lines of their own at the same place, 9.3 says how that conflict is resolved (`tools/sync-experiment.mjs`,
+experiments 5a, 5b and 6).
 
 A tool MAY also write the three ignore patterns to the clone's `.git/info/exclude`, which is never synced,
 so that the clone is protected before an appended `.gitignore` arrives from another device.
@@ -98,8 +118,10 @@ so that the clone is protected before an appended `.gitignore` arrives from anot
 
 A review is a folder `reviews/<id>/` containing a readable `review.json`. A folder whose `review.json`
 is missing or invalid is reported to the user and skipped; it is never modified. A `review.json` whose
-`schemaVersion` is below 2 was written by an older tool in its own layout (see CONFORMANCE.md): it is
-reported as an older format, skipped, and never modified, even when it sits where a version 2 review would.
+`schemaVersion` is below 2 was written by an earlier format: the IDE plugin 0.1.0 in its own layout (see
+CONFORMANCE.md), or the app's own files from before this format, which held no real data and are not
+supported. It is reported as an older format, skipped, and never modified, even when it sits where a
+version 2 review would.
 
 ## 3. Values
 
@@ -199,8 +221,10 @@ shared with a different tool.
 
 A writer MUST, for each event:
 
-1. hold exclusive write access to its own log (an operating-system lock on `<device-id>.lock` or on the
-   log itself); a second instance of the same device MUST be refused, not allowed to interleave;
+1. hold exclusive write access to its own log by holding an operating-system lock on
+   `<device-id>.lock`, **never** on the log itself (a lock on the log can stop git from reading it, and
+   then the commit fails); a second instance of the same device MUST be refused, not allowed to
+   interleave;
 2. start the event on a new line: if the file does not end in `\n` (a previous write was cut off), write
    `\n` first;
 3. append the JSON object and `\n`, flush to the operating system, and `fsync`;
@@ -221,7 +245,6 @@ A reader MUST NOT fail because of the content of a log. It MUST handle, and coun
 | Any other line that is not valid JSON                               | Skipped; reported with file and line number                  |
 | Valid JSON that is not a valid envelope                             | Skipped; counted                                             |
 | An `id` seen before (in any log)                                    | Skipped; counted as a duplicate                              |
-| An event type from the legacy list (6.1)                            | Skipped; counted as legacy                                   |
 | An event type this reader does not know, or an event whose required field is missing or has an unknown enum value | Skipped; counted as unknown. The line stays in the file untouched |
 | An event that refers to an annotation or reply that does not exist  | Skipped; counted as an orphan                                |
 | Unknown properties in a known event or in the envelope              | Ignored                                                      |
@@ -255,12 +278,11 @@ optional may be absent. `schema/event.schema.json` is the formal definition.
 | `regionUnreviewed`        | `path`, `ranges`                                                    | Clears lines                                           |
 | `ruleDecided`             | `annotationIds`, `targetPath`, `decision`: `applied`, `dismissed`   | Records what became of rule candidates                 |
 
-### 6.1 Legacy types
+### 6.1 Types outside the format
 
-`draftSaved`, `draftDiscarded`, `positionSaved`, `hunkReviewed` and `hunkUnreviewed` were written by the
-app before this format. They have no meaning in it and are ignored whatever their content (drafts and
-position are device-local now, section 10; hunk marks are replaced by regions). A tool that wrote them
-MAY convert them, but only the tool that understands them can: a hunk hash cannot be turned into lines.
+Drafts of unsent comments and the reading position are not events: they are device-local data (section
+10). There are no hunk marks: a reviewed mark is a region (6.4). An event of any type not listed above,
+under any name, is an unknown event (5.3).
 
 ### 6.2 Comments
 
@@ -347,7 +369,7 @@ The state of a review is a pure function of `review.json` and the set of events 
 
 **Order.** Events are sorted by `ts`, then `dev`, then `seq` (numbers numerically, strings by their UTF-8
 bytes), then `id`. Events with an `id` already seen are dropped, keeping the first in this order. Events
-that are legacy (6.1) or not valid events (5.3) are then dropped and counted.
+that are not valid events of a known type (5.3) are then dropped and counted.
 
 **Phases.** Valid events are applied in three passes over that order:
 
@@ -449,7 +471,7 @@ union driver). A merge may still conflict in exactly these cases, which a tool M
 | Conflicted path   | Resolution                                                                              |
 | ----------------- | --------------------------------------------------------------------------------------- |
 | `group.json`      | Two groups created apart were joined. Keep the file with the smaller `createdAt`; on a tie the smaller `id` by UTF-8 bytes. A `createdAt` that is not an integer (an ISO-8601 string from an older tool) is converted; if it cannot be, it loses. Both devices make the same choice. |
-| `.gitattributes`, `.gitignore` | Write the required lines of 2.1 in their order, then every other line of either version (blank lines and duplicates removed), sorted by UTF-8 bytes; every line ends in `\n`. Both devices write the same bytes. (Such a conflict arises when two devices each added different lines at the end of the same file, for example while bringing an older group up to 2.1.) |
+| `.gitattributes`, `.gitignore` | Git applies the last matching line, so order matters. Write, in this order: the lines of the common ancestor's version (none if there is no ancestor, as when two groups are joined); then what each side added, each side's lines kept together and in the order that side wrote them, the two blocks ordered by their UTF-8 bytes; then the required lines of 2.1, last, in their order. Blank lines and repeated lines are dropped (the first stays); a line one side removed and the other kept stays; every line ends in `\n`. Both devices write the same bytes, and nothing written by anyone can come after, and so override, a required line. (Such a conflict arises when two devices each added different lines at the end of the same file, for example while bringing an older group up to 2.1. `mergeRepoFile` in `tools/lib.mjs`; experiments 5b and 6b.) |
 | anything else     | `git merge --abort`. Report the path and leave the user's data exactly as it was. A tool MUST NOT choose a winner and MUST NOT keep a loser as a side file: there is no case in which dropping or hiding one side is correct. |
 
 After a successful pull a tool re-reads the reviews that changed and updates what the user sees.

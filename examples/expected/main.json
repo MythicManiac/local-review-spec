@@ -654,7 +654,6 @@
       "events": 44,
       "duplicates": 0,
       "unknown": 0,
-      "ignoredLegacy": 0,
       "orphans": 0,
       "invalidEnvelopes": 0,
       "tornTails": 0,

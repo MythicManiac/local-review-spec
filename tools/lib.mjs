@@ -19,15 +19,6 @@ export const SIDES = ["old", "new"];
 export const DECISIONS = ["applied", "dismissed"];
 export const RULE_CANDIDATE_TAG = "rule_candidate";
 
-/** Event types that older tools wrote and that carry no meaning in this format. Counted, not applied. */
-export const LEGACY_IGNORED = new Set([
-  "draftSaved",
-  "draftDiscarded",
-  "positionSaved",
-  "hunkReviewed",
-  "hunkUnreviewed",
-]);
-
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 const SHA = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const HASH = /^[0-9a-f]{64}$/;
@@ -112,15 +103,32 @@ export function appendMissing(text, required) {
 }
 
 /**
- * A merge conflict in .gitignore or .gitattributes (SPEC 9.3): the required lines in their order, then every
- * other line of either version (blank lines and duplicates removed) sorted by UTF-8 bytes. Symmetric, so both
- * devices write the same bytes.
+ * A merge conflict in .gitignore or .gitattributes (SPEC 9.3). `base` is the common ancestor's text ("" when
+ * there is none, as when two groups are joined). Git applies the LAST matching line, so order matters:
+ *
+ *   1. the lines of the base, in their order;
+ *   2. what each side added, each side's lines kept together and in the order that side wrote them, the
+ *      two blocks ordered by their UTF-8 bytes (so the result does not depend on which side is "ours");
+ *   3. the required lines, last, in their order, so that nothing anyone wrote can override them.
+ *
+ * Blank lines and duplicates are dropped (the first occurrence stays). A line that one side removed and the
+ * other kept stays: nothing is lost. Both devices write the same bytes.
  */
-export function mergeRepoFile(required, ours, theirs) {
-  const others = new Set([...repoFileLines(ours), ...repoFileLines(theirs)].filter((l) => l !== ""));
-  for (const r of required) others.delete(r);
-  const sorted = [...others].sort((a, b) => Buffer.compare(Buffer.from(a, "utf8"), Buffer.from(b, "utf8")));
-  return `${[...required, ...sorted].join("\n")}\n`;
+export function mergeRepoFile(required, base, ours, theirs) {
+  const clean = (t) => repoFileLines(t).filter((l) => l !== "");
+  const baseLines = clean(base);
+  const inBase = new Set(baseLines);
+  const added = (t) => [...new Set(clean(t).filter((l) => !inBase.has(l)))];
+  const bytes = (block) => Buffer.from(block.join("\n"), "utf8");
+  const blocks = [added(ours), added(theirs)].filter((b) => b.length > 0).sort((x, y) => Buffer.compare(bytes(x), bytes(y)));
+  const emitted = new Set(required); // the required lines go last, wherever they were before
+  const out = [];
+  for (const l of [...baseLines, ...blocks.flat()]) {
+    if (emitted.has(l)) continue;
+    emitted.add(l);
+    out.push(l);
+  }
+  return `${[...out, ...required].join("\n")}\n`;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -143,23 +151,9 @@ function validSnapshot(s) {
   return isObj(s) && strArray(s.lines) && strArray(s.before) && strArray(s.after);
 }
 
-/** Accepts the current anchor shape and the app's earlier flat shape; returns the current shape or null. */
+/** Returns the anchor in its normalized form, or null if it is not a valid anchor. */
 export function normalizeAnchor(a) {
   if (!isObj(a)) return null;
-  if (a.scope === undefined) {
-    // Legacy flat anchor: {path, oldPath, side, startLine, endLine, pin, snapshot}
-    if (!isStr(a.path) || a.path === "" || !validPin(a.pin)) return null;
-    const out = { scope: "file", path: a.path, pin: a.pin };
-    if (isStr(a.oldPath)) out.oldPath = a.oldPath;
-    if (a.startLine !== null && a.startLine !== undefined) {
-      const end = a.endLine ?? a.startLine;
-      const range = { side: a.side, startLine: a.startLine, endLine: end, snapshot: a.snapshot ?? { lines: [], before: [], after: [] } };
-      if (!validLineSpan(range) || !validSnapshot(range.snapshot)) return null;
-      out.scope = "lines";
-      out.ranges = [range];
-    }
-    return out;
-  }
   if (a.scope === "review") return { scope: "review" };
   if (a.scope === "file") {
     if (!isStr(a.path) || a.path === "" || !validPin(a.pin)) return null;
@@ -254,7 +248,6 @@ const emptyReport = () => ({
   events: 0,
   duplicates: 0,
   unknown: 0,
-  ignoredLegacy: 0,
   orphans: 0,
   invalidEnvelopes: 0,
   tornTails: 0,
@@ -316,10 +309,6 @@ export function fold({ meta, logs }) {
       continue;
     }
     seen.add(env.id);
-    if (LEGACY_IGNORED.has(env.ev.type)) {
-      report.ignoredLegacy++;
-      continue;
-    }
     const ev = validateEvent(env.ev);
     if (!ev) {
       report.unknown++;

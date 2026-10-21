@@ -10,6 +10,9 @@
 //   5. A group made by an older tool (a .gitignore with only "*.tmp") is brought up to the format by
 //      appending the missing lines; two devices doing it independently merge cleanly, and when each also
 //      has lines of its own the conflict is resolved by the rule of SPEC 9.3 with the same result on both.
+//   6. Git applies the last matching line, so the checks ask git whether the required rules are honoured:
+//      a present-but-overridden line is detected and repaired, and the conflict rule leaves them effective
+//      without breaking a user's own negation.
 //
 //   node tools/sync-experiment.mjs        (needs git on PATH; uses a temporary folder)
 
@@ -19,6 +22,7 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import assert from "node:assert/strict";
 import { fold, appendMissing, mergeRepoFile, GITIGNORE_LINES, GITATTRIBUTES_LINES } from "./lib.mjs";
+import { ineffective, repair } from "./repocheck.mjs";
 
 const tmp = mkdtempSync(join(tmpdir(), "lrs-sync-"));
 const env = {
@@ -213,17 +217,58 @@ try {
     const clash = sync(s);
     assert.equal(clash.ok, false, "different lines appended at the same place conflict");
     assert.deepEqual(git(s, "diff", "--name-only", "--diff-filter=U").split("\n").filter(Boolean), [".gitignore"], "and only .gitignore does");
-    const stage = (n) => execFileSync("git", ["show", `:${n}:.gitignore`], { cwd: s, env, encoding: "utf8" });
-    const resolved = mergeRepoFile(GITIGNORE_LINES, stage(2), stage(3));
-    assert.equal(resolved, mergeRepoFile(GITIGNORE_LINES, stage(3), stage(2)), "the rule does not depend on which side is ours");
+    const stage = (n) => {
+      try {
+        return execFileSync("git", ["show", `:${n}:.gitignore`], { cwd: s, env, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+      } catch {
+        return ""; // no common ancestor version (add/add)
+      }
+    };
+    const resolved = mergeRepoFile(GITIGNORE_LINES, stage(1), stage(2), stage(3));
+    assert.equal(resolved, mergeRepoFile(GITIGNORE_LINES, stage(1), stage(3), stage(2)), "the rule does not depend on which side is ours");
     put(join(s, ".gitignore"), resolved);
     git(s, "add", ".gitignore");
     git(s, "commit", "-q", "--no-edit");
     git(s, "push", "-q", "origin", "HEAD:refs/heads/main");
     git(r, "pull", "-q", "--no-edit", "origin", "main");
-    assert.equal(readFile(r, ".gitignore"), "*.lock\n*.tmp\n/reviews/*/local/\nbuild/\ndist/\n");
+    assert.equal(readFile(r, ".gitignore"), "build/\ndist/\n*.lock\n*.tmp\n/reviews/*/local/\n");
     assert.equal(readFile(s, ".gitignore"), readFile(r, ".gitignore"));
     ok("5b. differently extended copies conflict on .gitignore only; the rule keeps both devices' lines and gives both the same file");
+  }
+
+  {
+    // ---- 6: a required line that is present but overridden, and a merge that must not override -----------
+    const fresh = (name, files) => {
+      const d = join(tmp, name);
+      mkdirSync(d, { recursive: true });
+      git(d, "init", "-q", "-b", "main");
+      for (const [f, t] of Object.entries(files)) put(join(d, f), t);
+      return d;
+    };
+    const text = (d, f) => readFileSync(join(d, f), "utf8");
+
+    // 6a: every required line is in the files, but later lines override two of them (git applies the last).
+    const over = fresh("overridden", {
+      ".gitattributes": "* -text\n*.jsonl merge=union\n* text=auto eol=crlf\n",
+      ".gitignore": "*.lock\n*.tmp\n/reviews/*/local/\n!*.lock\n",
+    });
+    assert.equal(appendMissing(text(over, ".gitattributes"), GITATTRIBUTES_LINES), text(over, ".gitattributes"), "by line, nothing is missing");
+    assert.deepEqual(ineffective(over).map((p) => p.line).sort(), ["* -text", "*.lock"], "but git honours only the others");
+    const fixed = repair(over);
+    assert.deepEqual(fixed.remaining, [], "appending the two lines again makes them last, and so effective");
+    assert.equal(text(over, ".gitattributes"), "* -text\n*.jsonl merge=union\n* text=auto eol=crlf\n* -text\n", "only an append: nothing removed or rewritten");
+    assert.equal(text(over, ".gitignore"), "*.lock\n*.tmp\n/reviews/*/local/\n!*.lock\n*.lock\n");
+    ok("6a. a required line that is present but overridden is detected by asking git, and repaired by appending it again");
+
+    // 6b: the conflict rule, applied to files that disagree, leaves the required rules effective and the
+    // user's own rules working. (Checked by git, not by reading the lines.)
+    const attrs = mergeRepoFile(GITATTRIBUTES_LINES, "* -text\n*.jsonl merge=union\n", "* -text\n*.jsonl merge=union\n* text=auto eol=crlf\n", "* -text\n*.jsonl merge=union\n*.png binary\n");
+    const ignore = mergeRepoFile(GITIGNORE_LINES, "*.tmp\n", "*.tmp\n*.lock\n/reviews/*/local/\nbuild/*\n!build/keep.txt\n", "*.tmp\n*.lock\n/reviews/*/local/\n");
+    const merged = fresh("merged-rules", { ".gitattributes": attrs, ".gitignore": ignore });
+    assert.deepEqual(ineffective(merged), [], "every required rule is honoured after the merge");
+    assert.equal(tryGit(merged, "check-ignore", "-q", "--", "build/keep.txt").ok, false, "the user's negation still re-includes build/keep.txt");
+    assert.equal(tryGit(merged, "check-ignore", "-q", "--", "build/other.o").ok, true, "and the pattern it negates still applies");
+    ok("6b. the conflict rule keeps every required rule effective and does not break a user's negation");
   }
 } finally {
   rmSync(tmp, { recursive: true, force: true });

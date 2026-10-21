@@ -190,12 +190,9 @@ const edgeB = [
   env(EB, 2, E0 + 1500, "eb-0002", { type: "annotationPinned", annotationId: X }), // a type this reader does not know
   env(EB, 3, E0 + 1600, "eb-0003", { type: "replyEdited", annotationId: X, replyId: "r-1", body: "a reply, edited", futureField: { nested: true } }), // an unknown field is ignored
   env(EB, 4, E0 + 2000, "eb-0004", { type: "annotationStatusChanged", annotationId: X, status: "blocked" }), // an unknown enum value: the whole event is ignored
-  env(EB, 5, E0 + 2100, "eb-0005", { type: "draftSaved", key: "k", draft: { text: "unsent" } }), // written by older tools; no meaning here
-  env(EB, 6, E0 + 2200, "eb-0006", { type: "positionSaved", path: "a.txt", line: 3 }),
-  env(EB, 7, E0 + 2300, "eb-0007", { type: "hunkReviewed", path: "a.txt", hunkHash: "abc" }),
-  env(EB, 8, E0 + 2400, "eb-0008", { type: "annotationDeleted", annotationId: "no-such-annotation" }), // targets something that does not exist
+  env(EB, 5, E0 + 2400, "eb-0005", { type: "annotationDeleted", annotationId: "no-such-annotation" }), // targets something that does not exist
   // The same annotation created again later (re-imported): applies as an edit, in order.
-  env(EB, 9, E0 + 3000, "eb-0009", { type: "annotationCreated", annotationId: X, kind: "question", tags: ["rule_candidate"], body: "re-imported", ruleText: "Keep imports idempotent.", anchor: { scope: "file", path: "a.txt", pin: EPIN } }),
+  env(EB, 6, E0 + 3000, "eb-0006", { type: "annotationCreated", annotationId: X, kind: "question", tags: ["rule_candidate"], body: "re-imported", ruleText: "Keep imports idempotent.", anchor: { scope: "file", path: "a.txt", pin: EPIN } }),
 ];
 const edgeC = [
   env(EC, 1, E0 + 1700, "ec-0001", { type: "annotationCreated", annotationId: Y, kind: "changeRequest", tags: [], body: "second thread", anchor: { scope: "review" } }),

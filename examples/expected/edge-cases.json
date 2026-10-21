@@ -91,7 +91,6 @@
       "events": 9,
       "duplicates": 1,
       "unknown": 2,
-      "ignoredLegacy": 3,
       "orphans": 1,
       "invalidEnvelopes": 1,
       "tornTails": 1,
