@@ -59,7 +59,7 @@ if (!existsSync(manifestPath)) {
 }
 const recorded = new Map(
   readFileSync(manifestPath, "utf8")
-    .split("\n")
+    .split(/\r?\n/) // a checkout with core.autocrlf=true gives this file CRLF line ends
     .filter(Boolean)
     .map((l) => {
       const m = /^([0-9a-f]{64})  (.+)$/.exec(l);
