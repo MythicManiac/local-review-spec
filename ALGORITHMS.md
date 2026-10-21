@@ -2,7 +2,7 @@
 
 Normative. Every tool that evaluates marks or anchors implements these so that the same state gives the
 same answer in every tool. The reference implementation is `tools/lib.mjs`; the hand-derived test vectors
-are in `tools/selftest.mjs`. Where this text and a test vector disagree, the test vector wins and this
+are the JSON files in `vectors/`. Where this text and a test vector disagree, the test vector wins and this
 text has a bug.
 
 ## 1. Line model and hashing

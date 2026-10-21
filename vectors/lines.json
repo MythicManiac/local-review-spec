@@ -1,0 +1,32 @@
+{
+  "vector": "lines-of-blob",
+  "spec": "ALGORITHMS 1.1 (lines) and 1.3 (what a text file is)",
+  "about": "Given the bytes of a git blob, the lines of the file, or null if the blob is not text. `bytes` is a list of parts that are concatenated: {\"utf8\": \"...\"} is that text encoded as UTF-8, {\"hex\": \"..\"} is raw bytes, {\"fill\": \"61\", \"count\": N} is that one byte N times. Exactly one of `lines` (an array, or null for not text) or `lineCount` (when the lines are too long to write out) is given.",
+  "cases": [
+    { "name": "a trailing newline does not start another line", "bytes": [{ "utf8": "a\nb\n" }], "lines": ["a", "b"] },
+    { "name": "no trailing newline keeps the last line", "bytes": [{ "utf8": "a\nb" }], "lines": ["a", "b"] },
+    { "name": "empty content has no lines", "bytes": [], "lines": [] },
+    { "name": "a lone newline is one empty line", "bytes": [{ "utf8": "\n" }], "lines": [""] },
+    { "name": "two newlines are two empty lines", "bytes": [{ "utf8": "\n\n" }], "lines": ["", ""] },
+    { "name": "one CR before each LF is dropped", "bytes": [{ "utf8": "a\r\nb\r\n" }], "lines": ["a", "b"] },
+    { "name": "CRLF with no final newline", "bytes": [{ "utf8": "a\r\nb" }], "lines": ["a", "b"] },
+    { "name": "mixed LF and CRLF lines", "bytes": [{ "utf8": "a\nb\r\nc\n" }], "lines": ["a", "b", "c"] },
+    { "name": "a UTF-8 byte order mark is not part of line 1", "bytes": [{ "hex": "efbbbf" }, { "utf8": "a\nb\n" }], "lines": ["a", "b"] },
+    { "name": "a byte order mark alone leaves no lines", "bytes": [{ "hex": "efbbbf" }], "lines": [] },
+    { "name": "U+2028 is an ordinary character, not a line break", "bytes": [{ "utf8": "a\u2028b\n" }], "lines": ["a\u2028b"] },
+    { "name": "U+0085 is an ordinary character, not a line break", "bytes": [{ "utf8": "a\u0085b\n" }], "lines": ["a\u0085b"] },
+    { "name": "a form feed is an ordinary character, not a line break", "bytes": [{ "utf8": "a\fb\n" }], "lines": ["a\fb"] },
+    { "name": "non-ASCII text is kept", "bytes": [{ "utf8": "é\n" }], "lines": ["é"] },
+    { "name": "a stray 0xff byte is not well-formed UTF-8, so the file is not text", "bytes": [{ "hex": "61ff0a" }], "lines": null },
+    { "name": "an overlong encoding of \"/\" is not text", "bytes": [{ "hex": "c0af0a" }], "lines": null },
+    { "name": "an encoded surrogate is not text", "bytes": [{ "hex": "eda0800a" }], "lines": null },
+    { "name": "a code point above U+10FFFF is not text", "bytes": [{ "hex": "f4908080" }, { "hex": "0a" }], "lines": null },
+    { "name": "a truncated multi-byte sequence is not text", "bytes": [{ "hex": "61e282" }], "lines": null },
+    { "name": "a CR that is not followed by LF is not text", "bytes": [{ "utf8": "a\rb\n" }], "lines": null },
+    { "name": "two CRs before an LF are not text", "bytes": [{ "utf8": "a\r\r\nb\n" }], "lines": null },
+    { "name": "a CR at the very end is not text", "bytes": [{ "utf8": "a\r" }], "lines": null },
+    { "name": "a NUL byte in the first 8000 bytes is binary", "bytes": [{ "hex": "61000a" }], "lines": null },
+    { "name": "a NUL byte in the very first byte is binary", "bytes": [{ "hex": "000a" }], "lines": null },
+    { "name": "a NUL after the first 8000 bytes is not looked for: the content is one (odd) line", "bytes": [{ "fill": "61", "count": 8000 }, { "hex": "000a" }], "lineCount": 1 }
+  ]
+}

@@ -6,7 +6,7 @@ this. Items are in the order to do them. Draft 3 revised it after checking the p
 spec (the items marked *draft 3*).
 
 How to prove it: both tools fold `examples/state/reviews/*` and compare with `examples/expected/*.json`
-(SPEC 12), run the algorithm vectors in `tools/selftest.mjs`, and pass the cross-tool test at the end.
+(SPEC 12), run the algorithm vectors in `vectors/*.json`, and pass the cross-tool test at the end.
 
 ## The app
 

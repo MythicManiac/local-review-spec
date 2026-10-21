@@ -1,0 +1,18 @@
+{
+  "vector": "relocate-mark",
+  "spec": "ALGORITHMS 3.1",
+  "about": "A mark was made on lines `start`..`end` (1-based, inclusive) of the file `original`; its hash is the hash of those lines. `current` is the same side of the file now, or null if that side does not exist or is not text. `expected` is where the marked lines are now: [start, end], or null if they cannot be placed. Same place first; else exactly one window with the same hash; else null.",
+  "cases": [
+    { "name": "same place stays", "original": ["a", "b", "c", "d", "e", "f"], "start": 2, "end": 3, "current": ["a", "b", "c", "d", "e", "f"], "expected": [2, 3] },
+    { "name": "lines that moved are found when they occur once", "original": ["a", "b", "c", "d", "e", "f"], "start": 2, "end": 3, "current": ["x", "y", "a", "b", "c", "d", "e", "f"], "expected": [4, 5] },
+    { "name": "a multi-line mark found earlier in the file", "original": ["p", "q", "r", "s"], "start": 2, "end": 3, "current": ["q", "r", "p", "s"], "expected": [1, 2] },
+    { "name": "edited lines are gone", "original": ["a", "b", "c", "d", "e", "f"], "start": 2, "end": 3, "current": ["a", "b", "CHANGED", "d"], "expected": null },
+    { "name": "a mark that ran past the end of the shorter file is gone", "original": ["a", "b", "c", "d", "e", "f"], "start": 5, "end": 6, "current": ["a", "b", "c"], "expected": null },
+    { "name": "whitespace is compared exactly", "original": ["a  "], "start": 1, "end": 1, "current": ["a"], "expected": null },
+    { "name": "a side that no longer exists resolves to nothing", "original": ["a", "b"], "start": 1, "end": 1, "current": null, "expected": null },
+    { "name": "a repeated window is ambiguous, not guessed (the blank line now occurs at 3 and 5)", "original": ["x", "", "y", "", "z"], "start": 2, "end": 2, "current": ["q", "x", "", "y", "", "z"], "expected": null },
+    { "name": "the original position wins even if the text repeats elsewhere", "original": ["x", "", "y", "", "z"], "start": 2, "end": 2, "current": ["x", "", "y", "", "z"], "expected": [2, 2] },
+    { "name": "a multi-line window still at its place wins over a copy of it", "original": ["x", "y", "z"], "start": 1, "end": 2, "current": ["x", "y", "k", "x", "y"], "expected": [1, 2] },
+    { "name": "a multi-line window that moved and now occurs twice is ambiguous", "original": ["x", "y", "z"], "start": 1, "end": 2, "current": ["k", "x", "y", "k", "x", "y"], "expected": null }
+  ]
+}

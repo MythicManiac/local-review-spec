@@ -1,0 +1,14 @@
+{
+  "vector": "hash-lines",
+  "spec": "ALGORITHMS 1.2",
+  "about": "hashLines(lines) is the SHA-256, as 64 lowercase hex characters, of the bytes obtained by writing each line in UTF-8 followed by one LF. The digests were computed independently with `sha256sum` over the described bytes.",
+  "cases": [
+    { "name": "one line", "lines": ["abc"], "sha256": "edeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb", "bytes": "abc\\n" },
+    { "name": "two lines", "lines": ["a", "b"], "sha256": "911169ddaaf146aff539f58c26c489af3b892dff0fe283c1c264c65ae5aa59a2", "bytes": "a\\nb\\n" },
+    { "name": "line boundaries matter: [a, b] is not [ab]", "lines": ["ab"], "sha256": "a63d8014dba891345b30174df2b2a57efbb65b4f9f09b98f245d1b3192277ece", "bytes": "ab\\n" },
+    { "name": "no lines hash the empty input", "lines": [], "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "bytes": "(empty)" },
+    { "name": "one empty line is one LF", "lines": [""], "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b", "bytes": "\\n" },
+    { "name": "lines are hashed as UTF-8", "lines": ["é"], "sha256": "edd3a863872a04239eb29ad4bc12fc892b3d4ae57cc7e786a3697816f8e141c2", "bytes": "c3 a9 0a" },
+    { "name": "whitespace is not normalised", "lines": ["a  "], "sha256": "18ff741cc2779a320d7520277d194c1ad8a842a67b4b0911d9cc5bd7e2eef9b8", "bytes": "a<space><space>\\n" }
+  ]
+}

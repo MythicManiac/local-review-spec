@@ -1,0 +1,16 @@
+{
+  "vector": "trim",
+  "spec": "ALGORITHMS 1.4",
+  "about": "The whitespace set is exactly U+0009, U+000B, U+000C and U+0020. `trim` removes it from both ends, `trimEnd` from the end only. Nothing else is whitespace, including the no-break space and CR.",
+  "cases": [
+    { "name": "tab, space and form feed", "input": "\t x \f", "trim": "x", "trimEnd": "\t x" },
+    { "name": "vertical tab", "input": "\u000bx\u000b", "trim": "x", "trimEnd": "\u000bx" },
+    { "name": "plain spaces", "input": "  a b  ", "trim": "a b", "trimEnd": "  a b" },
+    { "name": "inner whitespace is kept", "input": "a \t b", "trim": "a \t b", "trimEnd": "a \t b" },
+    { "name": "a no-break space is not whitespace", "input": "x \u00a0", "trim": "x \u00a0", "trimEnd": "x \u00a0" },
+    { "name": "a leading no-break space is not whitespace", "input": "\u00a0x", "trim": "\u00a0x", "trimEnd": "\u00a0x" },
+    { "name": "a CR is not whitespace here (it is dropped when lines are split)", "input": "x\r", "trim": "x\r", "trimEnd": "x\r" },
+    { "name": "all whitespace becomes empty", "input": " \t\f", "trim": "", "trimEnd": "" },
+    { "name": "empty stays empty", "input": "", "trim": "", "trimEnd": "" }
+  ]
+}

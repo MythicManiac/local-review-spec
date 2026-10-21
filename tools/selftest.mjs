@@ -6,10 +6,11 @@
 //   node tools/selftest.mjs
 
 import { readFileSync, readdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
-import { readReview, fold, evaluate, loadContent, splitLines, hashLines, resolveMark, locate, addInterval, subtractInterval, trim, trimEnd, linesOfBlob, appendMissing, mergeRepoFile, GITIGNORE_LINES, GITATTRIBUTES_LINES } from "./lib.mjs";
+import { readReview, fold, evaluate, loadContent, hashLines, resolveMark, locate, addInterval, subtractInterval, trim, trimEnd, linesOfBlob, appendMissing, mergeRepoFile, GITIGNORE_LINES, GITATTRIBUTES_LINES } from "./lib.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ids = JSON.parse(readFileSync(join(root, "examples", "ids.json"), "utf8"));
@@ -29,122 +30,44 @@ const test = (name, fn) => {
   }
 };
 
-// ---- the line model -------------------------------------------------------------------------
-test("lines: a trailing newline does not start another line", () => assert.deepEqual(splitLines("a\nb\n"), ["a", "b"]));
-test("lines: no trailing newline keeps the last line", () => assert.deepEqual(splitLines("a\nb"), ["a", "b"]));
-test("lines: one CR before LF is dropped", () => assert.deepEqual(splitLines("a\r\nb\r\n"), ["a", "b"]));
-test("lines: empty text has no lines, a lone newline has one empty line", () => {
-  assert.deepEqual(splitLines(""), []);
-  assert.deepEqual(splitLines("\n"), [""]);
-});
-test("hash: SHA-256 of each line followed by LF", () =>
-  assert.equal(hashLines(["abc"]), "edeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb")); // sha256("abc\n")
-test("hash: line boundaries matter", () => assert.notEqual(hashLines(["a", "b"]), hashLines(["ab"])));
-test("trim: only tab, VT, FF and space count as whitespace", () => {
-  assert.equal(trim("\t x \f"), "x");
-  assert.equal(trimEnd("x \u00a0"), "x \u00a0"); // NBSP is not whitespace for matching
-});
+// ---- vectors/*.json: the language-neutral vectors for the algorithms --------------------------
+// Each file holds hand-written cases (see vectors/README.md). Any implementation can run the same files.
+const vector = (name) => JSON.parse(readFileSync(join(root, "vectors", name), "utf8"));
+const bytesOf = (parts) =>
+  Buffer.concat(
+    parts.map((p) => (p.utf8 !== undefined ? Buffer.from(p.utf8, "utf8") : p.hex !== undefined ? Buffer.from(p.hex, "hex") : Buffer.alloc(p.count, Buffer.from(p.fill, "hex")[0]))),
+  );
 
-// ---- text files (ALGORITHMS 1.1, 1.3) ---------------------------------------------------------
-const B = (s) => Buffer.from(s, "utf8");
-test("text: a UTF-8 byte order mark is not part of line 1", () => assert.deepEqual(linesOfBlob(Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), B("a\nb\n")])), ["a", "b"]));
-test("text: CRLF lines and a missing final newline are text", () => {
-  assert.deepEqual(linesOfBlob(B("a\r\nb\r\n")), ["a", "b"]);
-  assert.deepEqual(linesOfBlob(B("a\r\nb")), ["a", "b"]);
-  assert.deepEqual(linesOfBlob(Buffer.alloc(0)), []);
-});
-test("text: content that is not well-formed UTF-8 is not text", () => {
-  assert.equal(linesOfBlob(Buffer.from([0x61, 0xff, 0x0a])), null); // a stray byte
-  assert.equal(linesOfBlob(Buffer.from([0xc0, 0xaf, 0x0a])), null); // overlong encoding of "/"
-  assert.equal(linesOfBlob(Buffer.from([0xed, 0xa0, 0x80, 0x0a])), null); // an encoded surrogate
-});
-test("text: a CR that does not end a CRLF pair is not text, so editors that split on it cannot disagree", () => {
-  assert.equal(linesOfBlob(B("a\rb\n")), null);
-  assert.equal(linesOfBlob(B("a\r\r\nb\n")), null);
-  assert.equal(linesOfBlob(B("a\r")), null);
-});
-test("text: a NUL in the first 8000 bytes is binary, one later is not looked for", () => {
-  assert.equal(linesOfBlob(Buffer.from([0x61, 0x00, 0x0a])), null);
-  assert.equal(linesOfBlob(Buffer.concat([Buffer.alloc(8000, 0x61), Buffer.from([0x00, 0x0a])])).length, 1);
-});
+for (const c of vector("lines.json").cases)
+  test(`lines: ${c.name}`, () => {
+    const got = linesOfBlob(bytesOf(c.bytes));
+    if ("lineCount" in c) assert.equal(got?.length, c.lineCount);
+    else assert.deepEqual(got, c.lines);
+  });
+for (const c of vector("hash.json").cases) test(`hash: ${c.name}`, () => assert.equal(hashLines(c.lines), c.sha256));
+for (const c of vector("trim.json").cases)
+  test(`trim: ${c.name}`, () => {
+    assert.equal(trim(c.input), c.trim);
+    assert.equal(trimEnd(c.input), c.trimEnd);
+  });
+for (const c of vector("intervals.json").cases)
+  test(`intervals: ${c.name}`, () => assert.deepEqual((c.op === "add" ? addInterval : subtractInterval)(c.list, ...c.range), c.expected));
+for (const c of vector("relocate-mark.json").cases)
+  test(`mark: ${c.name}`, () => {
+    const hash = hashLines(c.original.slice(c.start - 1, c.end));
+    assert.deepEqual(resolveMark({ startLine: c.start, endLine: c.end, hash }, c.current), c.expected);
+  });
+for (const c of vector("locate.json").cases) test(`locate: ${c.name}`, () => assert.deepEqual(locate(c.range, c.file), c.expected));
 
-// ---- repository files (SPEC 2.1, 9.3) --------------------------------------------------------
-test("repo files: missing lines are appended, nothing else is touched", () => {
-  assert.equal(appendMissing("*.tmp\n", GITIGNORE_LINES), "*.tmp\n*.lock\n/reviews/*/local/\n"); // what plugin 0.1.0 wrote
-  assert.equal(appendMissing("build/", GITIGNORE_LINES), "build/\n*.lock\n*.tmp\n/reviews/*/local/\n");
-  assert.equal(appendMissing("", GITATTRIBUTES_LINES), "* -text\n*.jsonl merge=union\n");
-});
-test("repo files: a file that has every line is returned unchanged, whatever else it holds", () => {
-  const t = "# mine\r\n*.lock\r\n*.tmp\r\nout/\r\n/reviews/*/local/";
-  assert.equal(appendMissing(t, GITIGNORE_LINES), t);
-});
-const REQ_IGN = GITIGNORE_LINES.join("\n");
-test("repo files: a conflict keeps the lines of both sides, sorted, with the required lines last, identically on both sides", () => {
-  const a = "*.tmp\n*.lock\n/reviews/*/local/\nbuild/\n";
-  const b = "*.tmp\n*.lock\n/reviews/*/local/\ndist/\n\n";
-  const want = `build/\ndist/\n${REQ_IGN}\n`;
-  assert.equal(mergeRepoFile(GITIGNORE_LINES, a, b), want);
-  assert.equal(mergeRepoFile(GITIGNORE_LINES, b, a), want);
-});
-test("repo files: nothing else in the file can come after, and so override, a required line", () => {
-  const base = "* -text\n*.jsonl merge=union\n";
-  const ours = `${base}* text=auto eol=crlf\n`;
-  const theirs = `${base}*.png binary\n`;
-  const merged = mergeRepoFile(GITATTRIBUTES_LINES, ours, theirs);
-  assert.equal(merged, "* text=auto eol=crlf\n*.png binary\n* -text\n*.jsonl merge=union\n");
-  assert.equal(merged, mergeRepoFile(GITATTRIBUTES_LINES, theirs, ours));
-});
-test("repo files: two groups joined (no common ancestor) merge the same way", () => {
-  assert.equal(mergeRepoFile(GITIGNORE_LINES, "*.tmp\n", "*.tmp\nout/\n"), `out/\n${REQ_IGN}\n`);
-});
-test("repo files: CRLF line ends and blank lines do not matter", () => {
-  assert.equal(mergeRepoFile(GITIGNORE_LINES, "a\r\n\r\n", "a\n"), `a\n${REQ_IGN}\n`);
-});
-
-// ---- intervals ------------------------------------------------------------------------------
-test("intervals: touching intervals merge", () => assert.deepEqual(addInterval([[1, 3]], 4, 6), [[1, 6]]));
-test("intervals: subtracting the middle splits", () => assert.deepEqual(subtractInterval([[9, 11]], 10, 10), [[9, 9], [11, 11]]));
-
-// ---- relocation of a reviewed region ---------------------------------------------------------
-const L = ["a", "b", "c", "d", "e", "f"];
-const mark = (s, e, lines = L) => ({ startLine: s, endLine: e, hash: hashLines(lines.slice(s - 1, e)) });
-test("mark: same place stays", () => assert.deepEqual(resolveMark(mark(2, 3), L), [2, 3]));
-test("mark: moved lines are found when unique", () => assert.deepEqual(resolveMark(mark(2, 3), ["x", "y", ...L]), [4, 5]));
-test("mark: edited lines are gone", () => assert.equal(resolveMark(mark(2, 3), ["a", "b", "CHANGED", "d"]), null));
-test("mark: a repeated window is ambiguous, not guessed", () => {
-  const rep = ["x", "", "y", "", "z"];
-  assert.equal(resolveMark(mark(2, 2, rep), ["q", ...rep]), null); // line 2 is no longer blank, and a blank line is now at both 3 and 5
-});
-test("mark: the original position wins even if the text repeats elsewhere", () => {
-  const rep = ["x", "", "y", "", "z"];
-  assert.deepEqual(resolveMark(mark(2, 2, rep), rep), [2, 2]);
-});
-test("mark: a file that no longer has the side resolves to nothing", () => assert.equal(resolveMark(mark(1, 1), null), null));
-
-// ---- locating a comment's code (suggestions) --------------------------------------------------
-const snap = (lines, before = [], after = []) => ({ startLine: 5, endLine: 4 + lines.length, snapshot: { lines, before, after } });
-test("locate: with equal context, the lower start line wins a distance tie", () => {
-  // "x","y" occurs at lines 2-3 and 8-9; the old start is 5, so both are 3 lines away.
-  const file = ["k", "x", "y", "k", "k", "k", "k", "x", "y", "k"];
-  assert.deepEqual(locate(snap(["x", "y"]), file), [2, 3]);
-});
-test("locate: with equal context, the nearer one wins", () => {
-  const file = ["k", "x", "y", "k", "k", "k", "k", "k", "k", "x", "y"]; // lines 2-3 (3 away) and 10-11 (5 away)
-  assert.deepEqual(locate(snap(["x", "y"]), file), [2, 3]);
-});
-test("locate: whitespace-only differences still match (second pass)", () => assert.deepEqual(locate(snap(["  x", "y"]), ["a", "x", "y"]), [2, 3]));
-test("locate: matching context beats distance", () => {
-  // "x" at line 2 has both neighbours right (score 2, 6 lines from the old line 8); at line 10 only one (score 1, 2 lines away).
-  const file = ["p", "x", "q", "r", "r", "r", "r", "r", "w", "x", "q"];
-  const r = { startLine: 8, endLine: 8, snapshot: { lines: ["x"], before: ["p"], after: ["q"] } };
-  assert.deepEqual(locate(r, file), [2, 2]);
-});
-test("locate: fuzzy matching needs at least 3 lines and 70% of them equal", () => {
-  assert.equal(locate(snap(["a", "b"]), ["a", "X"]), null); // 2 lines: no fuzzy pass
-  assert.equal(locate(snap(["a", "b", "c"]), ["a", "b", "X"]), null); // 2 of 3 = 67%
-  assert.deepEqual(locate(snap(["a", "b", "c", "d"]), ["a", "b", "c", "X"]), [1, 4]); // 3 of 4 = 75%
-});
-test("locate: nothing similar gives no suggestion", () => assert.equal(locate(snap(["a", "b", "c"]), ["x", "y", "z"]), null));
+const repoVectors = vector("repo-files.json");
+const REQUIRED = { gitignore: GITIGNORE_LINES, gitattributes: GITATTRIBUTES_LINES };
+test("repo files: the vectors and the library agree on the required lines", () => assert.deepEqual(repoVectors.required, REQUIRED));
+for (const c of repoVectors.append) test(`repo files (opening): ${c.name}`, () => assert.equal(appendMissing(c.text, REQUIRED[c.file]), c.expected));
+for (const c of repoVectors.merge)
+  test(`repo files (conflict): ${c.name}`, () => {
+    assert.equal(mergeRepoFile(REQUIRED[c.file], c.ours, c.theirs), c.expected);
+    if (c.symmetric) assert.equal(mergeRepoFile(REQUIRED[c.file], c.theirs, c.ours), c.expected);
+  });
 
 // ---- the main example ------------------------------------------------------------------------
 const state = fold(readReview(mainDir));
@@ -236,6 +159,9 @@ test("expected/main.json matches the reference implementation", () => assert.dee
 test("expected/edge-cases.json matches the reference implementation", () => assert.deepEqual(expected("edge-cases.json"), JSON.parse(JSON.stringify({ review: ids.edgeReview, fold: edge }))));
 test("every file in examples/state/reviews is a review the tests know about", () => {
   assert.deepEqual(readdirSync(join(root, "examples", "state", "reviews")).sort(), [ids.edgeReview, ids.review].sort());
+});
+test("the normative files match MANIFEST.sha256 (a change to them must be deliberate: CHANGE_CONTROL.md)", () => {
+  execFileSync("node", [join(root, "tools", "manifest.mjs")], { stdio: ["ignore", "pipe", "pipe"] });
 });
 
 console.log(`${passed} checks passed${process.exitCode ? ", with failures" : ""}`);

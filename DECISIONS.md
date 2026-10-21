@@ -189,3 +189,13 @@ any draft, so the format version stays 2.
 | ------ | --- |
 | SPEC 5.2 step 2: the writer reads the `ts` and `seq` of the last line that is a **valid event envelope** (any event type), scanning back from the end; if there is none, `seq` is 1 and `ts` is only bounded by the writer's own previous event | Draft 5 said "last complete line". A writer that adds the `\n` after a torn tail (step 3) and then dies leaves an invalid fragment as the last complete line, and the next writer would have nothing to read. A newer tool's events must count too, so any type is accepted. |
 | SPEC 8: a tool MUST run the change-set command with git's working directory at the top level of the reviewed repository | With `diff.relative` set in a user's configuration, the same command run from a subdirectory reports only that subdirectory's files with shortened paths; no flag of the command prevents it (`tools/changeset-experiment.mjs`, check 4). Running at the top level was chosen over adding `--no-relative`, which needs git 2.28 or newer. |
+
+## Changes since draft 6 (baseline 1)
+
+Frozen for implementation as `baseline-1`. No tool has implemented any draft, so the format version stays 2.
+
+| Change | Why |
+| ------ | --- |
+| SPEC 5.2: a writer that holds the lock for the whole session may keep the last `ts` and `seq` in memory | Step 2 says to read the end of the log for each event, which read literally made the app's session-long lock non-conformant. Nobody else can append to the log while the lock is held, so the cached values are equivalent. Found while confirming that the app conforms. |
+| The algorithm vectors moved from `tools/selftest.mjs` to language-neutral JSON files in `vectors/` (119 checks including the manifest check, up from 55 once each case counts separately), with new cases for rules that had none (the interval operations, the trim set, a code point above U+10FFFF, a truncated sequence, the exact-before-trimmed pass order, context scoring, UTF-8 byte order in the conflict sort) | The Rust and Kotlin implementations would otherwise transcribe the vectors by hand from JavaScript. The expected values are hand-derived (the digests with `sha256sum`), so the reference implementation cannot hide a bug in them; breaking the reference six ways, each was caught. |
+| The freeze: `CHANGE_CONTROL.md`, `FINDINGS.md`, `SPEC_VERSION`, `MANIFEST.sha256` and `tools/manifest.mjs` (the self-test fails if a normative file differs from the manifest); the tag `baseline-1` | A frozen text needs a name, a record of exactly which bytes it is, and a rule for changing it. Line endings are normalised when hashing Markdown and JSON outside `examples/`, so a checkout with converted line endings still matches. |

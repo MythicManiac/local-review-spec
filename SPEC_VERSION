@@ -1,0 +1,4 @@
+baseline: baseline-1
+format: schemaVersion 2, envelope v 1
+manifest: MANIFEST.sha256 (node tools/manifest.mjs checks it)
+history: DECISIONS.md, "Changes since draft 6"

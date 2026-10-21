@@ -1,0 +1,27 @@
+{
+  "vector": "repo-files",
+  "spec": "SPEC 2.1 (appending missing lines) and 9.3 (resolving a conflict)",
+  "about": "`required` lists the required lines of each file, in order. `append` cases: the text of the file when a group is opened, and the text after appending the missing required lines (an empty `text` is a missing file). `merge` cases: the two versions in conflict and the result; where `symmetric` is true the result must be the same with the two versions swapped. Text is given with explicit \\n and \\r\\n.",
+  "required": {
+    "gitignore": ["*.lock", "*.tmp", "/reviews/*/local/"],
+    "gitattributes": ["* -text", "*.jsonl merge=union"]
+  },
+  "append": [
+    { "name": "the .gitignore plugin 0.1.0 wrote gets the other two lines", "file": "gitignore", "text": "*.tmp\n", "expected": "*.tmp\n*.lock\n/reviews/*/local/\n" },
+    { "name": "a file without a final newline gets one before the appended lines", "file": "gitignore", "text": "build/", "expected": "build/\n*.lock\n*.tmp\n/reviews/*/local/\n" },
+    { "name": "a missing file becomes the required lines", "file": "gitattributes", "text": "", "expected": "* -text\n*.jsonl merge=union\n" },
+    { "name": "a file that has every line is returned unchanged, whatever else it holds (CRLF, no final newline)", "file": "gitignore", "text": "# mine\r\n*.lock\r\n*.tmp\r\nout/\r\n/reviews/*/local/", "expected": "# mine\r\n*.lock\r\n*.tmp\r\nout/\r\n/reviews/*/local/" },
+    { "name": "existing CRLF lines are left alone; the appended lines use LF", "file": "gitignore", "text": "a\r\n", "expected": "a\r\n*.lock\n*.tmp\n/reviews/*/local/\n" },
+    { "name": "other lines are never reordered or removed", "file": "gitattributes", "text": "*.png binary\n* text=auto\n", "expected": "*.png binary\n* text=auto\n* -text\n*.jsonl merge=union\n" }
+  ],
+  "merge": [
+    { "name": "the other lines of both sides, sorted, then the required lines", "file": "gitignore", "ours": "*.tmp\n*.lock\n/reviews/*/local/\nbuild/\n", "theirs": "*.tmp\n*.lock\n/reviews/*/local/\ndist/\n\n", "expected": "build/\ndist/\n*.lock\n*.tmp\n/reviews/*/local/\n", "symmetric": true },
+    { "name": "nothing else in the file can come after, and so override, a required line", "file": "gitattributes", "ours": "* -text\n*.jsonl merge=union\n* text=auto eol=crlf\n", "theirs": "* -text\n*.jsonl merge=union\n*.png binary\n", "expected": "* text=auto eol=crlf\n*.png binary\n* -text\n*.jsonl merge=union\n", "symmetric": true },
+    { "name": "two groups joined: each side's file is kept", "file": "gitignore", "ours": "*.tmp\n", "theirs": "*.tmp\nout/\n", "expected": "out/\n*.lock\n*.tmp\n/reviews/*/local/\n", "symmetric": true },
+    { "name": "CRLF line ends and blank lines do not matter", "file": "gitignore", "ours": "a\r\n\r\n", "theirs": "a\n", "expected": "a\n*.lock\n*.tmp\n/reviews/*/local/\n", "symmetric": true },
+    { "name": "identical sides give that file plus the required lines", "file": "gitignore", "ours": "x\n", "theirs": "x\n", "expected": "x\n*.lock\n*.tmp\n/reviews/*/local/\n", "symmetric": true },
+    { "name": "two empty files give just the required lines", "file": "gitattributes", "ours": "", "theirs": "", "expected": "* -text\n*.jsonl merge=union\n", "symmetric": true },
+    { "name": "a required line found among the other lines moves to its place at the end", "file": "gitignore", "ours": "*.lock\nz/\n", "theirs": "a/\n", "expected": "a/\nz/\n*.lock\n*.tmp\n/reviews/*/local/\n", "symmetric": true },
+    { "name": "sorting is by UTF-8 bytes, not by UTF-16 code units (U+FF5E sorts before U+1F600 in UTF-8, after it in UTF-16)", "file": "gitignore", "ours": "\ud83d\ude00\n", "theirs": "\uff5e\n", "expected": "\uff5e\n\ud83d\ude00\n*.lock\n*.tmp\n/reviews/*/local/\n", "symmetric": true }
+  ]
+}

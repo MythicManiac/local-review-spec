@@ -4,13 +4,14 @@ A specification, and a runnable reference, for storing code-review state in a gi
 different tools (the standalone **Local Review** app, the **Local Diff Review** IDE plugin) can read and
 write the same reviews through the same git remote.
 
-Status: **draft 6**, written before either tool implements it. Nothing here has been run by those tools.
-What has been run is the reference implementation in `tools/`, against the example in `examples/`.
-Draft 5 followed the IDE plugin developer's review of draft 4: it pins the change-set command (SPEC 8), makes
-the append lock a per-event critical section so several IDEs can share one device id (SPEC 5.2), and adds
-notes on copied device ids and local disks. See "Changes since draft 4" in DECISIONS.md.
-Draft 6 is a wording pass: the writer reads the last valid event envelope of a log (SPEC 5.2), and tools run the
-change-set command at the repository's top level (SPEC 8). See "Changes since draft 5" in DECISIONS.md.
+Status: **baseline 1: frozen for implementation** (tag `baseline-1`; see `SPEC_VERSION` and CHANGE_CONTROL.md).
+Neither tool has implemented it yet, so it is not final; findings go in FINDINGS.md. What has been run is the
+reference implementation in `tools/`, against the vectors in `vectors/` and the example in `examples/`.
+
+History: draft 5 followed the IDE plugin developer's review of draft 4 (pinned change-set command, per-event
+lock, notes on device ids and local disks). Draft 6 was a wording pass (the writer reads the last valid event
+envelope of a log; git runs at the repository's top level). Baseline 1 adds the session-lock wording, the JSON
+vectors, and the freeze mechanics. See "Changes since draft 5" and "Changes since draft 6" in DECISIONS.md.
 
 ## What it is, in short
 
@@ -35,6 +36,10 @@ change-set command at the repository's top level (SPEC 8). See "Changes since dr
 | [ALGORITHMS.md](ALGORITHMS.md) | Line model, hashing, relocating a reviewed region, locating a comment's code. Normative. |
 | [DECISIONS.md](DECISIONS.md) | Every choice and why; what the user decided; where the two tools differed and which won. |
 | [CONFORMANCE.md](CONFORMANCE.md) | What the app and the plugin each have to change; the mapping from each tool's current files. |
+| [CHANGE_CONTROL.md](CHANGE_CONTROL.md) | What "frozen" means, the three kinds of change, how findings are handled, exit criteria for 2.0. |
+| [FINDINGS.md](FINDINGS.md) | Problems found while implementing, to be triaged. |
+| `vectors/` | Language-neutral test cases for the algorithms (JSON). See [vectors/README.md](vectors/README.md). |
+| `MANIFEST.sha256`, `SPEC_VERSION` | The hashes of the normative files and the baseline's name. `node tools/manifest.mjs` checks them. |
 | `schema/` | JSON Schemas: `group`, `review`, `event` (envelope and every event type). |
 | `examples/` | A reference state directory and the expected results. See [examples/README.md](examples/README.md). |
 | `tools/` | The reference implementation and the tests. |
@@ -44,7 +49,7 @@ change-set command at the repository's top level (SPEC 8). See "Changes since dr
 Needs Node 20 or newer (and git, only to rebuild the fixture or run the sync experiment). No packages.
 
 ```
-node tools/selftest.mjs                       # 55 checks: algorithms, text and repository-file rules, the example, expected/ is current
+node tools/selftest.mjs                       # 119 checks: the vectors/*.json files, the example, expected/ is current, the manifest
 node tools/sync-experiment.mjs                # real git: 10 experiments (union merge, joining groups, autocrlf, older groups, effective rules)
 node tools/changeset-experiment.mjs           # real git: the pinned change-set command is immune to a user's git config (when run at the top level)
 node tools/fold.mjs examples/state/reviews/<id> --content examples/content    # fold and evaluate a review

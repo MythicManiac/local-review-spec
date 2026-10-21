@@ -255,7 +255,9 @@ appended since. Their appends are serialized by the lock, so none interleaves.
 
 A writer MAY instead keep the lock for as long as it has the review open. Other instances of that device
 then cannot take it, and treat the review as read-only while it lasts (they still read and show it). Both
-styles are correct, and instances using different styles can run together.
+styles are correct, and instances using different styles can run together. A writer that holds the lock for
+the whole session may keep the last `ts` and `seq` in memory instead of reading the end of the log again
+for every event (step 2), because no other instance of the device can append while it holds the lock.
 
 A writer MUST NOT rewrite, truncate, reorder or delete lines of any log, its own included. Corrections
 are new events.
@@ -567,10 +569,10 @@ saving a draft MUST still `fsync` it before reporting it saved.
 
 ## 12. Conformance
 
-A **conforming reader** implements sections 3 to 8 and passes `tools/selftest.mjs`'s equivalent for its
-language: the fold of `examples/state` equals `examples/expected/*.json`. A **conforming writer** also
-implements 5.2, 6 and 9.2, and emits only what `schema/` allows. A **conforming tool** is both and meets
-section 9 and 10.
+A **conforming reader** implements sections 3 to 8, passes every case in the `vectors/` files, and folds
+`examples/state` to `examples/expected/*.json` (`tools/selftest.mjs` does both for the reference
+implementation). A **conforming writer** also implements 5.2, 6 and 9.2, and emits only what `schema/`
+allows. A **conforming tool** is both and meets sections 9 and 10.
 
-Test vectors for the algorithms are in `tools/selftest.mjs`. They are small, hand-derived, and are the
-authoritative answer where the prose is ambiguous.
+Test vectors for the algorithms are the JSON files in `vectors/` (see `vectors/README.md`). They are small,
+hand-derived, language-neutral, and are the authoritative answer where the prose is ambiguous.

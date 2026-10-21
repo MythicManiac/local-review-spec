@@ -1,0 +1,21 @@
+{
+  "vector": "intervals",
+  "spec": "ALGORITHMS 2",
+  "about": "Coverage is a sorted list of disjoint inclusive [start, end] intervals. `add` merges the range with every interval it overlaps or touches. `subtract` removes those lines, splitting an interval if the removed run is in its middle.",
+  "cases": [
+    { "name": "touching intervals merge", "op": "add", "list": [[1, 3]], "range": [4, 6], "expected": [[1, 6]] },
+    { "name": "an overlapping range merges", "op": "add", "list": [[5, 8]], "range": [7, 12], "expected": [[5, 12]] },
+    { "name": "a range inside an interval changes nothing", "op": "add", "list": [[5, 8]], "range": [6, 7], "expected": [[5, 8]] },
+    { "name": "a separate range stays separate and sorted (before)", "op": "add", "list": [[5, 8]], "range": [1, 2], "expected": [[1, 2], [5, 8]] },
+    { "name": "a separate range stays separate and sorted (between)", "op": "add", "list": [[1, 3], [7, 9]], "range": [5, 5], "expected": [[1, 3], [5, 5], [7, 9]] },
+    { "name": "a range that touches two intervals joins them", "op": "add", "list": [[1, 3], [7, 9]], "range": [4, 6], "expected": [[1, 9]] },
+    { "name": "adding to an empty list", "op": "add", "list": [], "range": [3, 4], "expected": [[3, 4]] },
+    { "name": "subtracting the middle splits", "op": "subtract", "list": [[9, 11]], "range": [10, 10], "expected": [[9, 9], [11, 11]] },
+    { "name": "subtracting a prefix", "op": "subtract", "list": [[1, 5]], "range": [1, 2], "expected": [[3, 5]] },
+    { "name": "subtracting a suffix, the range reaching past the end", "op": "subtract", "list": [[1, 5]], "range": [4, 9], "expected": [[1, 3]] },
+    { "name": "subtracting everything", "op": "subtract", "list": [[1, 5]], "range": [1, 5], "expected": [] },
+    { "name": "subtracting across two intervals trims both", "op": "subtract", "list": [[1, 3], [5, 7]], "range": [3, 5], "expected": [[1, 2], [6, 7]] },
+    { "name": "subtracting lines that are not covered changes nothing", "op": "subtract", "list": [[1, 3]], "range": [5, 6], "expected": [[1, 3]] },
+    { "name": "subtracting from an empty list", "op": "subtract", "list": [], "range": [1, 2], "expected": [] }
+  ]
+}

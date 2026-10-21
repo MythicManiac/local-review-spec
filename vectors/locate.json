@@ -1,0 +1,21 @@
+{
+  "vector": "locate",
+  "spec": "ALGORITHMS 4",
+  "about": "Where a comment's code is now, for a suggestion. `range` is an anchor range (startLine, endLine, snapshot with lines, before, after); `file` is the lines of that side of the file now. `expected` is the suggested [start, end], or null for no suggestion. Passes in order: exact after trimEnd, then after trim, then (for 3 or more lines) at least 70% of lines equal after trim; the best window is the one with the highest context score, then the smallest distance from range.startLine, then the smallest start line.",
+  "cases": [
+    { "name": "equal context and equal distance: the lower start line wins", "range": { "startLine": 5, "endLine": 6, "snapshot": { "lines": ["x", "y"], "before": [], "after": [] } }, "file": ["k", "x", "y", "k", "k", "k", "k", "x", "y", "k"], "expected": [2, 3] },
+    { "name": "equal context: the nearer one wins, even when it is later in the file", "range": { "startLine": 5, "endLine": 6, "snapshot": { "lines": ["x", "y"], "before": [], "after": [] } }, "file": ["k", "x", "y", "k", "k", "x", "y", "k"], "expected": [6, 7] },
+    { "name": "matching context beats distance (before and after)", "range": { "startLine": 8, "endLine": 8, "snapshot": { "lines": ["x"], "before": ["p"], "after": ["q"] } }, "file": ["p", "x", "q", "r", "r", "r", "r", "r", "w", "x", "q"], "expected": [2, 2] },
+    { "name": "matching context after the window beats distance", "range": { "startLine": 6, "endLine": 6, "snapshot": { "lines": ["x"], "before": [], "after": ["c", "d"] } }, "file": ["x", "c", "d", "k", "k", "x", "c", "k"], "expected": [1, 1] },
+    { "name": "matching context before the window counts outward from the nearest line", "range": { "startLine": 6, "endLine": 6, "snapshot": { "lines": ["x"], "before": ["a", "b"], "after": [] } }, "file": ["a", "b", "x", "k", "b", "x", "k"], "expected": [3, 3] },
+    { "name": "a window that differs only in trailing whitespace matches in the first pass", "range": { "startLine": 5, "endLine": 5, "snapshot": { "lines": ["x  "], "before": [], "after": [] } }, "file": ["a", "x"], "expected": [2, 2] },
+    { "name": "whitespace-only differences still match (second pass)", "range": { "startLine": 5, "endLine": 6, "snapshot": { "lines": ["  x", "y"], "before": [], "after": [] } }, "file": ["a", "x", "y"], "expected": [2, 3] },
+    { "name": "an exact match beats a nearer trimmed match: a later pass is only tried if an earlier one found nothing", "range": { "startLine": 2, "endLine": 2, "snapshot": { "lines": ["x"], "before": [], "after": [] } }, "file": ["  x", "k", "k", "k", "k", "x"], "expected": [6, 6] },
+    { "name": "two lines: no fuzzy pass", "range": { "startLine": 5, "endLine": 6, "snapshot": { "lines": ["a", "b"], "before": [], "after": [] } }, "file": ["a", "X"], "expected": null },
+    { "name": "three lines with only 2 equal (67%) is not enough", "range": { "startLine": 5, "endLine": 7, "snapshot": { "lines": ["a", "b", "c"], "before": [], "after": [] } }, "file": ["a", "b", "X"], "expected": null },
+    { "name": "four lines with 3 equal (75%) is enough", "range": { "startLine": 5, "endLine": 8, "snapshot": { "lines": ["a", "b", "c", "d"], "before": [], "after": [] } }, "file": ["a", "b", "c", "X"], "expected": [1, 4] },
+    { "name": "nothing similar gives no suggestion", "range": { "startLine": 5, "endLine": 7, "snapshot": { "lines": ["a", "b", "c"], "before": [], "after": [] } }, "file": ["x", "y", "z"], "expected": null },
+    { "name": "a snapshot longer than the file gives no suggestion", "range": { "startLine": 1, "endLine": 3, "snapshot": { "lines": ["a", "b", "c"], "before": [], "after": [] } }, "file": ["a", "b"], "expected": null },
+    { "name": "an empty snapshot gives no suggestion", "range": { "startLine": 1, "endLine": 1, "snapshot": { "lines": [], "before": [], "after": [] } }, "file": ["a"], "expected": null }
+  ]
+}
