@@ -248,3 +248,26 @@ importing, resolves it. Hunk marks are lost, as above.
    repository** as working directory. With `diff.relative` set, git run from a subdirectory reports only
    that subdirectory (`tools/changeset-experiment.mjs`, check 4). The plugin's `GitCli` already runs at the
    top level (`GitCli(root)`); the app should confirm the same.
+6. **Review notes** *(after baseline 1; informative, no change to the format)*: a comment whose anchor has
+   `scope: review` is a **review note**, the place for a concern that belongs to the whole review (an
+   architectural point spanning several files) rather than to any lines. Nothing new is stored: a review note
+   is an ordinary `annotationCreated`, and everything a comment can do applies unchanged: `kind`, `tags` (so
+   `rule_candidate`), `body`, `annotationEdited`, `annotationStatusChanged` (open, resolved, wontFix),
+   deletion and restoration, and replies. Its state against the code is always `current` (ALGORITHMS 5), so a
+   retarget never outdates it and there is no suggestion to compute. What this entry asks of both tools,
+   as a user-visible contract (all SHOULD; none of it changes what is written):
+   - **A place of its own.** The review notes are listed together, in a place that can stay open beside the
+     code (the plugin: a tab of the editor area, which can sit in a split next to a diff; the app: a pane or
+     page next to the diff). They are not mixed into a file's comments.
+   - **The same thread features as any comment.** Add, edit (kind, text, rule candidate), reply, resolve,
+     reopen, delete with undo. A note is created with the kind `comment` unless the user chooses another.
+   - **Order.** By creation time, then id (UTF-8 bytes), the order of `annotations` in the reference state, so
+     two tools list the same notes in the same order.
+   - **A deleted note** is hidden from that list and stays restorable where the tool offers restoring
+     comments, as for any comment.
+   - **Hand-off.** Reports and agent prompts list the review notes first, as general feedback, with their
+     replies and their status, as for other comments.
+   - **No structure beyond the text.** A note that concerns particular files names them in its body. The
+     format has no field linking a note to files or lines; an additive optional field could be proposed
+     later (SPEC 11) if a real need shows up, and a reader that does not know it ignores it. A concern that
+     is about specific lines should be a line comment.
